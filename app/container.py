@@ -26,6 +26,7 @@ from app.core.services.validation_service import (
     ValidationService,
 )
 from app.monitoring.api_monitor import ApiMonitor
+from app.core.services.rbac_service import RBACService
 
 
 def build_container() -> Container:

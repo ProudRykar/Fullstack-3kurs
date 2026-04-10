@@ -13,6 +13,7 @@ from app.adapters.repositories.redis_blacklist_repo import RedisBlacklistRepo
 from app.adapters.repositories.redis_rate_limit_repo import RedisRateLimitRepo
 from app.api.schemas.user_dto import UserDTO
 from app.config import config, token_key
+from app.core.domain.models.role import Role
 from app.core.errors.auth import (
     InvalidEmailOrPasswordError,
     UnauthorizedError,
@@ -98,6 +99,7 @@ class AuthService:
         if not self._security.verify_hash(password=password, salt=salt, hash_=hash):
             raise InvalidEmailOrPasswordError
 
+        user_role = user.get("role", Role.USER.value)
         access_token: str = paseto.create(
             key=token_key,
             purpose="local",
@@ -105,6 +107,7 @@ class AuthService:
                 "sub": str(user["_id"]),
                 "username": user["username"],
                 "email": user["email"],
+                "role": user_role,
                 "type": "access",
                 "jti": secrets.token_hex(8),
             },
@@ -116,6 +119,7 @@ class AuthService:
             purpose="local",
             claims={
                 "sub": str(user["_id"]),
+                "role": user_role,
                 "type": "refresh",
                 "jti": secrets.token_hex(16),
             },
@@ -126,6 +130,7 @@ class AuthService:
             id=str(user["_id"]),
             username=user["username"],
             email=user["email"],
+            role=user_role,
         )
 
         return user_dto, access_token, refresh_token
@@ -241,11 +246,16 @@ class AuthService:
             ):
                 raise UnauthorizedError("Access токен в чёрном списке")
 
+        user_service = container.resolve(UserService)
+        user = await user_service.get_user_by_id(user_id)
+        user_role = user.get("role", Role.USER.value) if user else Role.USER.value
+
         new_access = paseto.create(
             key=token_key,
             purpose="local",
             claims={
                 "sub": user_id,
+                "role": user_role,
                 "type": "access",
                 "jti": secrets.token_hex(8),
             },
@@ -257,6 +267,7 @@ class AuthService:
             purpose="local",
             claims={
                 "sub": user_id,
+                "role": user_role,
                 "type": "refresh",
                 "jti": secrets.token_hex(16),
             },

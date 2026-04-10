@@ -82,3 +82,16 @@ class UnauthorizedError(Exception):
         """
         super().__init__(message)
         self.message: str | Exception = message
+
+
+class ForbiddenError(Exception):
+    """Исключение, возникающее при недостатке прав доступа."""
+
+    def __init__(self, message: str | Exception = "Доступ запрещён.") -> None:
+        """Конструктор.
+
+        Args:
+            message (str | Exception, optional): Сообщение об ошибке".
+        """
+        super().__init__(message)
+        self.message: str | Exception = message

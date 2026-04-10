@@ -32,11 +32,13 @@ class UserDTO:
         id: Уникальный идентификатор пользователя
         username: Имя пользователя
         email: Email пользователя
+        role: Роль пользователя
     """
 
     id: str
     username: str
     email: str
+    role: str = "user"
 
     @classmethod
     def fromrow(cls, row: dict[str, Any]) -> UserDTO:
@@ -52,6 +54,7 @@ class UserDTO:
             id=str(row.get("_id") or row.get("id")),
             username=row["username"],
             email=row["email"],
+            role=row.get("role", "user"),
         )
 
 
@@ -66,3 +69,10 @@ class UserLoginDTO:
 
     identifier: str
     password: str
+
+
+@dataclass(slots=True, kw_only=True)
+class RoleUpdateDTO:
+    """Данные для обновления роли пользователя."""
+
+    role: str

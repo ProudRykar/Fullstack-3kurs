@@ -242,3 +242,38 @@ class UserService:
             self._storage.delete_file(url.split("/")[-1])
         except Exception:
             raise DeleteImageError("Произошла ошибка при удалении картинки") from None
+
+    async def update_user_role(self, user_id: str, new_role: str) -> dict[str, Any]:
+        """Обновляет роль пользователя.
+
+        Args:
+            user_id (str): ID пользователя
+            new_role (str): Новая роль
+
+        Returns:
+            dict[str, Any]: Обновлённый пользователь
+        """
+        try:
+            await self._user_repo.update(
+                {"_id": ObjectId(user_id)}, {"$set": {"role": new_role}}
+            )
+        except Exception:
+            raise UserCreationError("Произошла ошибка при обновлении роли") from None
+
+        user = await self._user_repo.get_one({"_id": ObjectId(user_id)})
+        return user
+
+    async def get_all_users(
+        self, limit: int = 30, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """Возвращает всех пользователей.
+
+        Args:
+            limit (int): Лимит пользователей
+            offset (int): Смещение
+
+        Returns:
+            list[dict[str, Any]]: Список пользователей
+        """
+        users = await self._user_repo.get_many({}, limit=limit, skip=offset)
+        return users

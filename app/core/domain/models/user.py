@@ -1,9 +1,10 @@
 """Модуль содержит доменную модель пользователя."""
 
-# UserDE
 from dataclasses import dataclass
 
 from bson import ObjectId
+
+from app.core.domain.models.role import Role
 
 
 @dataclass
@@ -15,12 +16,14 @@ class User:
         username (str): Имя пользователя
         email (str): Email пользователя
         password_hash (str): Хэш пароля
+        role (Role): Роль пользователя
     """
 
     _id: ObjectId
     username: str
     email: str
     password_hash: str
+    role: Role = Role.USER
 
     @property
     def id(self) -> str:

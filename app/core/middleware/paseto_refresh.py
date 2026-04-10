@@ -83,15 +83,12 @@ def access_token_middleware(container: Container) -> Callable[[ASGIApp], ASGIApp
                     headers = MutableScopeHeaders.from_message(message)
                     headers.add("access-control-allow-credentials", "true")
 
-                origin = request.headers.get("origin")
+                    origin = request.headers.get("origin")
 
-                allowed = {
-                    "http://localhost:5173",
-                    "http://178.213.116.90:5173"
-                }
+                    allowed = {"http://localhost:5173", "http://178.213.116.90:5173"}
 
-                if origin in allowed:
-                    headers.add("access-control-allow-origin", origin)
+                    if origin in allowed:
+                        headers.add("access-control-allow-origin", origin)
 
                 await send(message)
 

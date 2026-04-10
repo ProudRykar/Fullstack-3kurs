@@ -5,7 +5,11 @@ from typing import Callable, Type, Any
 
 from litestar import Request, Response
 
-from app.api.exceptions.problem_factory import ErrorCode, ProblemFactory, problem_factory
+from app.api.exceptions.problem_factory import (
+    ErrorCode,
+    ProblemFactory,
+    problem_factory,
+)
 from app.core.errors.auth import (
     PasswordDontMatchError,
     EmailValidationError,
@@ -13,13 +17,14 @@ from app.core.errors.auth import (
     UsernameAlreadyTakenError,
     InvalidEmailOrPasswordError,
     UnauthorizedError,
+    ForbiddenError,
 )
 from app.core.errors.security import TooManyRequestsError
 from app.core.errors.user import (
-    AbsentUserError, 
-    DeleteImageError, 
-    GetImagesError, 
-    ImageUploadError, 
+    AbsentUserError,
+    DeleteImageError,
+    GetImagesError,
+    ImageUploadError,
     UserCreationError,
 )
 from app.core.errors.validation import (
@@ -32,8 +37,7 @@ from app.core.errors.validation import (
 
 
 def create_problem_response(
-    body: dict[str, Any], 
-    headers: dict[str, str] | None = None
+    body: dict[str, Any], headers: dict[str, str] | None = None
 ) -> Response:
     """Создаёт HTTP-ответ в формате RFC 7807."""
     return Response(
@@ -49,29 +53,29 @@ def create_handler(
     factory: ProblemFactory = problem_factory,
 ) -> Callable[[Request, Exception], Response]:
     """Создаёт обработчик для указанного типа ошибки."""
-    
+
     def handler(request: Request, exc: Exception) -> Response:
         detail = str(getattr(exc, "message", str(exc)))
         body = factory.build(error_code, detail)
         return create_problem_response(body)
-    
+
     return handler
 
 
 def too_many_requests_handler(
-    request: Request, 
+    request: Request,
     exc: TooManyRequestsError,
 ) -> Response:
     """Специальный обработчик для rate limit с Retry-After."""
     detail = str(getattr(exc, "message", str(exc)))
-    
+
     extra = {}
     headers = {}
-    
+
     if exc.retry_after is not None:
         headers["Retry-After"] = str(exc.retry_after)
         extra["retry_after"] = exc.retry_after
-    
+
     body = problem_factory.build(ErrorCode.TOO_MANY_REQUESTS, detail, **extra)
     return create_problem_response(body, headers)
 
@@ -94,6 +98,7 @@ ERROR_MAPPING: dict[ErrorCode, tuple[type[Exception], ...]] = {
         UnauthorizedError,
     ),
     ErrorCode.AUTHORIZATION_ERROR: (
+        ForbiddenError,
         ImageUploadError,
         AbsentUserError,
     ),
@@ -104,23 +109,22 @@ ERROR_MAPPING: dict[ErrorCode, tuple[type[Exception], ...]] = {
     ),
     ErrorCode.UNSUPPORTED_MEDIA_TYPE: (
         ImageExtensionValidationError,
-        ImageValidationError
-        
-    )
+        ImageValidationError,
+    ),
 }
 
 
 def build_exception_handlers() -> dict[Type[Exception], Callable]:
     """Строит словарь обработчиков исключений."""
     handlers: dict[Type[Exception], Callable] = {}
-    
+
     for error_code, exceptions in ERROR_MAPPING.items():
         handler = create_handler(error_code)
         for exc_type in exceptions:
             handlers[exc_type] = handler
-    
+
     handlers[TooManyRequestsError] = too_many_requests_handler
-    
+
     return handlers
 
 
