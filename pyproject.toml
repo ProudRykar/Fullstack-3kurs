@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "chalkboard-ocr-classification-kit"
+name = "mtuci-fullstack"
 version = "0.1.0"
-description = "Chalkboard-OCR-Classification-Kit"
+description = "MTUCI Fullstack API"
 authors = ["ProudRykar <proudrykar@mail.ru>"]
 license = "MIT"
 readme = "README.md"
@@ -14,9 +14,6 @@ python = "^3.12,<3.13"
 punq = "^0.7.0"
 pymongo = "^4.15.1"
 dotenv = "^0.9.9"
-email-validator = "^2.3.0"
-python-magic = "^0.4.27"
-pygments = "^2.19.2"
 
 # --- Web & API ---
 starlette = "^0.48.0"
@@ -25,32 +22,13 @@ litestar = {extras = ["standard"], version = "^2.18.0"}
 
 # --- Utility / Additional libs ---
 jamlib = "^2.3.0"
-giraffe-view = "^0.2.3"
-gutarik = "^0.1.0"
-toml = "^0.10.2"
 boto3 = "^1.40.52"
-pix2text = {extras = ["multilingual"], version = "^1.1.4"}
 pillow = "^12.0.0"
-pytesseract = "^0.3.13"
-onnxruntime-gpu = "^1.23.2"
-paddleocr = ">=2.6"
-paddlepaddle = "3.2.0"
-accelerate = "^1.12.0"
-bitsandbytes = "^0.49.1"
-pyllamacpp = "^2.4.3"
-compressed-tensors = "^0.13.0"
 paseto = "^2.0.0"
 redis = "^7.1.1"
 prometheus-client = "^0.24.1"
 plotly = "^6.6.0"
-ipywidgets = "^8.1.8"
-ipython = "^9.11.0"
-anywidget = "^0.9.21"
 dash = "^4.0.0"
-python-levenshtein = "^0.27.3"
-scikit-learn = "^1.8.0"
-rapidocr-onnxruntime = "^1.4.4"
-python-doctr = "^1.0.1"
 
 
 [tool.poetry.group.docs.dependencies]
@@ -66,7 +44,7 @@ pre-commit = "^4.1.0"
 icecream = "^2.1.4"
 mypy = "^1.15.0"
 pytest-benchmark = "^5.1.0"
-pytest = "^8.4.2"
+pytest = "^9.0.2"
 ruff = "^0.13.3"
 deptry = "^0.24.0"
 
@@ -105,7 +83,7 @@ force-wrap-aliases = true
 # ---------------- Mypy ----------------
 [tool.mypy]
 python_version = "3.13"
-files = ["mongofy", "tests"]
+files = ["app", "tests"]
 
 strict = true
 ignore_missing_imports = true

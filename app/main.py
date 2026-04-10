@@ -20,17 +20,16 @@ if config.DEBUG:
 container = build_container()
 
 openapi_config = OpenAPIConfig(
-    title="COCK API",
+    title="MTUCI Fullstack API",
     version="2.0.0",
-    summary="API для сервиса Chalkboard OCR Classification Kit",
+    summary="MTUCI Fullstack API",
     description="""
-Готовый к продакшену  OCR API
+MTUCI Fullstack API
 
 Особенности
  - PASETO токены
  - MongoDB основное хранилище данных
  - Чёрный список токенов и rate limit через Redis
- - Отдельные движки для распознавания формул и текста, переключаемые изменением одной строки кода
 """,
     contact={"name": "ProudRykar", "email": "proudrykar@mail.ru"},
     license={"name": "MIT License", "url": "https://opensource.org/licenses/MIT"},
@@ -55,7 +54,6 @@ app = Litestar(
         access_token_middleware(container=container),
         rate_limit_middleware(container=container),
         api_monitor_middleware(container=container),
-
     ],
     exception_handlers=EXCEPTION_HANDLERS,
 )

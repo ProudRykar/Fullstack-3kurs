@@ -4,18 +4,11 @@
 и шлюзами, используемыми в приложении, обеспечивая единый доступ к
 одноэкземпляровым объектам и упрощая внедрение зависимостей.
 """
-# Container
 
 from typing import Any
 
 from punq import Container, Scope
 
-from app.adapters.engines.doctr_engine import DocTROCREngine
-from app.adapters.engines.easy_ocr_engine import EasyOCREngine
-from app.adapters.engines.paddle_engine import PaddleOCREngine
-from app.adapters.engines.pix2text_engine import Pix2TextEngine
-from app.adapters.engines.rapidocr import RapidOCREngine
-from app.adapters.engines.tesseract_engine import TesseractOCREngine
 from app.adapters.gateways.mongo import MongoGateway
 from app.adapters.gateways.redis import RedisGateway
 from app.adapters.gateways.s3 import MinioGateway
@@ -34,7 +27,7 @@ from app.core.services.validation_service import (
 )
 from app.monitoring.api_monitor import ApiMonitor
 
-from app.core.services.ocr_service import OCRService
+
 def build_container() -> Container:
     """Создает и конфигурирует контейнер зависимостей.
 
@@ -105,7 +98,7 @@ def build_container() -> Container:
         container.register(
             interface,
             factory=lambda coll=collection_name: MongoRepo(
-                gateway=container.resolve(MongoGateway),  # type: ignore
+                gateway=container.resolve(MongoGateway),
                 collection_name=coll,
             ),
         )
@@ -120,84 +113,28 @@ def build_container() -> Container:
     container.register(
         UserService,
         factory=lambda: UserService(
-            user_repo=container.resolve(UserRepo),  # type: ignore
-            image_repo=container.resolve(ImageRepo),  # type: ignore
-            security=container.resolve(SecurityService),  # type: ignore
-            validator=container.resolve(ValidationService),  # type: ignore
-            image_validator=container.resolve(ImageValidator),  # type: ignore
-            storage=container.resolve(MinioGateway),  # type: ignore
+            user_repo=container.resolve(UserRepo),
+            image_repo=container.resolve(ImageRepo),
+            security=container.resolve(SecurityService),
+            validator=container.resolve(ValidationService),
+            image_validator=container.resolve(ImageValidator),
+            storage=container.resolve(MinioGateway),
         ),
     )
 
     container.register(
         AuthService,
         factory=lambda: AuthService(
-            repository=container.resolve(UserRepo),  # type: ignore
-            security=container.resolve(SecurityService),  # type: ignore
-            validation=container.resolve(ValidationService),  # type: ignore
-            redis_blacklist_repo=container.resolve(RedisBlacklistRepo),  # type: ignore
-            redis_rate_limit_repo=container.resolve(RedisRateLimitRepo),  # type: ignore
+            repository=container.resolve(UserRepo),
+            security=container.resolve(SecurityService),
+            validation=container.resolve(ValidationService),
+            redis_blacklist_repo=container.resolve(RedisBlacklistRepo),
+            redis_rate_limit_repo=container.resolve(RedisRateLimitRepo),
         ),
     )
 
     container.register(Config, instance=Config())
 
     container.register(ApiMonitor, ApiMonitor, scope=Scope.singleton)
-
-    def register_ocr_engines(container: Container, device: str = "cpu") -> None:
-        """Регистрация OCR движков в контейнере."""
-        
-        # Формула/распознавание формул
-        container.register(
-            Pix2TextEngine,
-            factory=lambda: Pix2TextEngine.from_config(device=device),
-            scope=Scope.singleton,
-        )
-
-        # Текстовый OCR (PaddleOCR)
-        container.register(
-            PaddleOCREngine,
-            factory=lambda: PaddleOCREngine.from_config(device=device),
-            scope=Scope.singleton,
-        )
-
-        # Текстовый OCR (Tesseract)
-        container.register(
-            TesseractOCREngine,
-            factory=lambda: TesseractOCREngine.from_config(),
-            scope=Scope.singleton,
-        )
-
-        # Текстовый OCR (EasyOCR)
-        container.register(
-            EasyOCREngine,
-            factory=lambda: EasyOCREngine.from_config(lang=["ru"], gpu=False),
-            scope=Scope.singleton,
-        )
-
-        # Текстовый OCR (RapidOCR)
-        container.register(
-            RapidOCREngine,
-            factory=lambda: RapidOCREngine.from_config(),
-            scope=Scope.singleton,
-        )
-
-        # Текстовый OCR (Doctr)
-        container.register(
-            DocTROCREngine,
-            factory=lambda: DocTROCREngine.from_config(),
-            scope=Scope.singleton,
-        )
-
-    register_ocr_engines(container, device="cpu")
-
-    container.register(
-        OCRService,
-        factory=lambda: OCRService(
-            formula_engine=container.resolve(Pix2TextEngine),
-            text_engine=container.resolve(PaddleOCREngine),
-        ),
-        scope=Scope.singleton,
-    )
 
     return container
