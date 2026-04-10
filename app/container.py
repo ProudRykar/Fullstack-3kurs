@@ -14,6 +14,9 @@ from app.adapters.gateways.redis import RedisGateway
 from app.adapters.gateways.s3 import MinioGateway
 from app.adapters.repositories.image_repo import ImageRepo
 from app.adapters.repositories.mongo_repo import MongoRepo
+from app.adapters.repositories.product_repo import ProductRepo
+from app.adapters.repositories.receipt_repo import ReceiptRepo
+from app.adapters.repositories.inventory_repo import InventoryRepo
 from app.adapters.repositories.redis_blacklist_repo import RedisBlacklistRepo
 from app.adapters.repositories.redis_rate_limit_repo import RedisRateLimitRepo
 from app.adapters.repositories.user_repo import UserRepo
@@ -21,6 +24,9 @@ from app.config import Config
 from app.core.services.auth_service import AuthService
 from app.core.services.security_service import SecurityService
 from app.core.services.user_service import UserService
+from app.core.services.product_service import ProductService
+from app.core.services.receipt_service import ReceiptService
+from app.core.services.inventory_service import InventoryService
 from app.core.services.validation_service import (
     ImageValidator,
     ValidationService,
@@ -106,6 +112,9 @@ def build_container() -> Container:
 
     register_mongo_repo(UserRepo, "users")
     register_mongo_repo(ImageRepo, "images")
+    register_mongo_repo(ProductRepo, "products")
+    register_mongo_repo(ReceiptRepo, "receipts")
+    register_mongo_repo(InventoryRepo, "inventory")
 
     container.register(SecurityService, SecurityService, scope=Scope.singleton)
     container.register(ValidationService, ValidationService, scope=Scope.singleton)
@@ -137,5 +146,28 @@ def build_container() -> Container:
     container.register(Config, instance=Config())
 
     container.register(ApiMonitor, ApiMonitor, scope=Scope.singleton)
+
+    container.register(
+        ProductService,
+        factory=lambda: ProductService(
+            product_repo=container.resolve(ProductRepo),
+        ),
+    )
+
+    container.register(
+        ReceiptService,
+        factory=lambda: ReceiptService(
+            receipt_repo=container.resolve(ReceiptRepo),
+            product_service=container.resolve(ProductService),
+        ),
+    )
+
+    container.register(
+        InventoryService,
+        factory=lambda: InventoryService(
+            inventory_repo=container.resolve(InventoryRepo),
+            product_service=container.resolve(ProductService),
+        ),
+    )
 
     return container

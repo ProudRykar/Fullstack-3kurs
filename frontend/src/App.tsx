@@ -3,8 +3,11 @@ import { AuthProvider } from './context/AuthContext';
 import { PrivateRoute, RoleRoute } from './components/PrivateRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { DashboardPage } from './pages/DashboardPage';
+import { SearchPage } from './pages/SearchPage';
+import { ReceiptsPage } from './pages/ReceiptsPage';
+import { InventoryPage } from './pages/InventoryPage';
 import { AdminPage } from './pages/AdminPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 function App() {
   return (
@@ -15,6 +18,30 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/"
+            element={
+              <PrivateRoute>
+                <SearchPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/receipts"
+            element={
+              <PrivateRoute>
+                <ReceiptsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <PrivateRoute>
+                <InventoryPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/products"
             element={
               <PrivateRoute>
                 <DashboardPage />

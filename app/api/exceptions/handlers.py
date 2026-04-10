@@ -88,6 +88,7 @@ ERROR_MAPPING: dict[ErrorCode, tuple[type[Exception], ...]] = {
         UsernameValidationError,
         EmailValidationError,
         IdentificatorIsNullError,
+        ValueError,
     ),
     ErrorCode.CONFLICT_ERROR: (
         EmailAlreadyTakenError,
@@ -102,6 +103,7 @@ ERROR_MAPPING: dict[ErrorCode, tuple[type[Exception], ...]] = {
         ImageUploadError,
         AbsentUserError,
     ),
+    ErrorCode.NOT_FOUND: (ValueError,),
     ErrorCode.SERVER_ERROR: (
         UserCreationError,
         GetImagesError,

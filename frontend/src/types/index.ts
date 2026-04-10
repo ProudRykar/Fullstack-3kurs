@@ -26,6 +26,33 @@ export interface AuthResponse {
   role: Role;
 }
 
+export interface Product {
+  id: string;
+  barcode: string;
+  qrcode: string | null;
+  rfid: string | null;
+  name: string;
+  sku: string;
+  category: string;
+  location: string;
+  quantity: number;
+  price: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ProductCreate {
+  name: string;
+  sku: string;
+  barcode: string;
+  category?: string;
+  location?: string;
+  price: number;
+  quantity?: number;
+  qrcode?: string;
+  rfid?: string;
+}
+
 export interface ProblemDetail {
   type: string;
   title: string;
