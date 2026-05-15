@@ -27,7 +27,7 @@ class InventoryService:
         count = await collection.count_documents({})
         return f"ИНВ-{str(count + 1).zfill(5)}"
 
-    async def create(self, created_by: str) -> Inventory:
+    async def create(self, created_by: str, warehouse_id: str = "") -> Inventory:
         now = datetime.utcnow()
         number = await self._generate_number()
 
@@ -37,6 +37,7 @@ class InventoryService:
             "scans": [],
             "status": "in_progress",
             "created_by": created_by,
+            "warehouse_id": warehouse_id,
         }
 
         id = await self._repo.add(data)
@@ -103,12 +104,18 @@ class InventoryService:
 
         return await self.get_by_id(inventory_id)
 
-    async def get_all(self, limit: int = 50, skip: int = 0) -> list[Inventory]:
-        results = await self._repo.get_many({}, limit=limit, skip=skip)
+    async def get_all(self, limit: int = 50, skip: int = 0, warehouse_id: str | None = None) -> list[Inventory]:
+        query = {}
+        if warehouse_id:
+            query["warehouse_id"] = warehouse_id
+        results = await self._repo.get_many(query, limit=limit, skip=skip)
         return [Inventory.from_dict(r) for r in results]
 
-    async def get_active(self) -> Inventory | None:
-        results = await self._repo.get_by_status("in_progress", 1)
+    async def get_active(self, warehouse_id: str | None = None) -> Inventory | None:
+        query = {"status": "in_progress"}
+        if warehouse_id:
+            query["warehouse_id"] = warehouse_id
+        results = await self._repo.get_many(query, limit=1)
         if not results:
             return None
         return Inventory.from_dict(results[0])

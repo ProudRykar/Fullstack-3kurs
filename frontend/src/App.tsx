@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { WarehouseProvider } from './context/WarehouseContext';
 import { PrivateRoute, RoleRoute } from './components/PrivateRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -8,11 +9,14 @@ import { ReceiptsPage } from './pages/ReceiptsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { AdminPage } from './pages/AdminPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { WarehousesPage } from './pages/WarehousesPage';
+import { WarehouseDetailPage } from './pages/WarehouseDetailPage';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <WarehouseProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -49,6 +53,22 @@ function App() {
             }
           />
           <Route
+            path="/warehouses"
+            element={
+              <PrivateRoute>
+                <WarehousesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/warehouses/:id"
+            element={
+              <PrivateRoute>
+                <WarehouseDetailPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/admin"
             element={
               <RoleRoute allowedRoles={['admin']}>
@@ -58,6 +78,7 @@ function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </WarehouseProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -39,6 +39,9 @@ export interface Product {
   price: number;
   created_at: string | null;
   updated_at: string | null;
+  cell_code?: string;
+  cell_quantity?: number;
+  cell_capacity?: number;
 }
 
 export interface ProductCreate {
@@ -48,9 +51,44 @@ export interface ProductCreate {
   category?: string;
   location?: string;
   price: number;
-  quantity?: number;
   qrcode?: string;
   rfid?: string;
+}
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  location: string;
+  cell_count: number;
+  capacity_per_cell: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WarehouseCell {
+  id: string;
+  warehouse_id: string;
+  code: string;
+  capacity: number;
+  product_id: string | null;
+  product_name: string | null;
+  product_barcode: string | null;
+  quantity: number;
+  is_empty: boolean;
+}
+
+export interface ProductCell {
+  warehouse_id: string;
+  warehouse_name: string;
+  cell_id: string;
+  cell_code: string;
+  quantity: number;
+  capacity: number;
+}
+
+export interface ProductSearchResult {
+  product: Product;
+  cells: ProductCell[];
 }
 
 export interface ProblemDetail {

@@ -9,6 +9,7 @@ from .inventory import inventory_router
 from .products import products_router
 from .receipts import receipts_router
 from .user import users_router
+from .warehouses import warehouses_router
 
 
 api_routers = Router(
@@ -20,6 +21,7 @@ api_routers = Router(
         products_router,
         receipts_router,
         inventory_router,
+        warehouses_router,
         admin_router,
     ],
 )

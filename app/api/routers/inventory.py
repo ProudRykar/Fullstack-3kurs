@@ -3,10 +3,12 @@
 from litestar import Router, get, post
 from litestar.di import Provide
 from litestar.openapi import ResponseSpec
-from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
+from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_403_FORBIDDEN
 from punq import Container
 
 from app.api.schemas.user_dto import UserDTO
+from app.core.domain.models.permission import Permission
+from app.core.middleware.rbac import require_permission
 from app.core.services.auth_service import AuthService
 from app.core.services.product_service import ProductService
 from app.core.services.inventory_service import InventoryService
@@ -17,20 +19,21 @@ from app.core.services.inventory_service import InventoryService
     summary="Начать инвентаризацию",
     tags=["Инвентаризация"],
     status_code=HTTP_201_CREATED,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.INVENTORY_CREATE)},
 )
 async def create_inventory(
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
+    warehouse_id: str = "",
 ) -> dict:
     inv_service = container.resolve(InventoryService)
-    user_id = current_user.id if current_user else ""
 
-    inv = await inv_service.create(user_id)
+    inv = await inv_service.create(current_user.id, warehouse_id)
     return {
         "id": str(inv._id) if inv._id else "",
         "number": inv.number,
         "status": inv.status,
+        "warehouse_id": inv.warehouse_id,
     }
 
 
@@ -39,14 +42,15 @@ async def create_inventory(
     summary="Список инвентаризаций",
     tags=["Инвентаризация"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.INVENTORY_VIEW)},
 )
 async def list_inventory(
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
+    warehouse_id: str | None = None,
 ) -> list[dict]:
     inv_service = container.resolve(InventoryService)
-    inventory_list = await inv_service.get_all()
+    inventory_list = await inv_service.get_all(warehouse_id=warehouse_id)
 
     return [
         {
@@ -56,6 +60,7 @@ async def list_inventory(
             "status": i.status,
             "total_checked": i.total_checked,
             "diff_count": i.diff_count,
+            "warehouse_id": i.warehouse_id,
         }
         for i in inventory_list
     ]
@@ -66,14 +71,15 @@ async def list_inventory(
     summary="Активная инвентаризация",
     tags=["Инвентаризация"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.INVENTORY_VIEW)},
 )
 async def get_active_inventory(
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
+    warehouse_id: str | None = None,
 ) -> dict | None:
     inv_service = container.resolve(InventoryService)
-    inv = await inv_service.get_active()
+    inv = await inv_service.get_active(warehouse_id)
 
     if not inv:
         return None
@@ -82,6 +88,7 @@ async def get_active_inventory(
         "id": str(inv._id) if inv._id else "",
         "number": inv.number,
         "status": inv.status,
+        "warehouse_id": inv.warehouse_id,
         "scans": [
             {
                 "product_name": s.product_name,
@@ -101,12 +108,12 @@ async def get_active_inventory(
     summary="Получить инвентаризацию",
     tags=["Инвентаризация"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.INVENTORY_VIEW)},
 )
 async def get_inventory(
     inventory_id: str,
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
 ) -> dict:
     inv_service = container.resolve(InventoryService)
     inv = await inv_service.get_by_id(inventory_id)
@@ -121,6 +128,7 @@ async def get_inventory(
         "status": inv.status,
         "total_checked": inv.total_checked,
         "diff_count": inv.diff_count,
+        "warehouse_id": inv.warehouse_id,
         "scans": [
             {
                 "product_name": s.product_name,
@@ -140,14 +148,14 @@ async def get_inventory(
     summary="Сканировать товар",
     tags=["Инвентаризация"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.INVENTORY_SCAN)},
 )
 async def scan_inventory(
     inventory_id: str,
     barcode: str,
     scanned_quantity: int,
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
 ) -> dict:
     inv_service = container.resolve(InventoryService)
     product_service = container.resolve(ProductService)
@@ -168,12 +176,12 @@ async def scan_inventory(
     summary="Завершить инвентаризацию",
     tags=["Инвентаризация"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.INVENTORY_COMPLETE)},
 )
 async def complete_inventory(
     inventory_id: str,
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
 ) -> dict:
     inv_service = container.resolve(InventoryService)
     inv = await inv_service.complete(inventory_id)

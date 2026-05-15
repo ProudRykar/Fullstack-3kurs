@@ -1,130 +1,93 @@
 """Модуль содержит RBAC guard для проверки прав доступа."""
 
+import paseto
 from litestar import Request
 from litestar.di import Provide
 from punq import Container
 
 from app.api.schemas.user_dto import UserDTO
 from app.config import token_key
-from app.core.domain.models.permission import (
-    ROLE_PERMISSIONS,
-    Permission,
-)
+from app.core.domain.models.permission import Permission
 from app.core.domain.models.role import Role
-from app.core.errors.auth import ForbiddenError
+from app.core.errors.auth import ForbiddenError, UnauthorizedError
 from app.core.errors.security import InvalidTokenError
-import paseto
+from app.core.services.rbac_service import RBACService
+from app.core.services.user_service import UserService
 
 
-async def require_permission(
-    request: Request, container: Container, permission: Permission
-) -> None:
-    """Dependency для проверки разрешения.
-
-    Raises:
-        ForbiddenError: Если нет разрешения.
-    """
-    user = await get_user_from_request(request, container)
-    if user is None:
-        return
-
-    role = user.role
-    role_perms = ROLE_PERMISSIONS.get(role, [])
-    if permission not in role_perms:
-        raise ForbiddenError(
-            f"Недостаточно прав для выполнения операции. Требуется: {permission.value}"
-        )
-
-
-async def require_any_permission(
-    request: Request, container: Container, permissions: list[Permission]
-) -> None:
-    """Dependency для проверки хотя бы одного разрешения.
-
-    Raises:
-        ForbiddenError: Если нет ни одного разрешения.
-    """
-    user = await get_user_from_request(request, container)
-    if user is None:
-        return
-
-    role = user.role
-    role_perms = ROLE_PERMISSIONS.get(role, [])
-    if not any(p in role_perms for p in permissions):
-        raise ForbiddenError(
-            f"Недостаточно прав для выполнения операции. Требуется одно из: {[p.value for p in permissions]}"
-        )
-
-
-async def require_role(
-    request: Request, container: Container, allowed_roles: list[Role]
-) -> None:
-    """Dependency для проверки роли.
-
-    Raises:
-        ForbiddenError: Если роль не соответствует.
-    """
-    user = await get_user_from_request(request, container)
-    if user is None:
-        raise ForbiddenError("Доступ только для авторизованных пользователей")
-
-    user_role = Role(user.role)
-    if user_role not in allowed_roles:
-        raise ForbiddenError(
-            f"Доступ запрещён. Требуется одна из ролей: {[r.value for r in allowed_roles]}"
-        )
-
-
-async def get_user_from_request(
+async def get_current_user(
     request: Request, container: Container
-) -> UserDTO | None:
-    """Извлекает пользователя из токена в запросе.
+) -> UserDTO:
+    """Извлекает и возвращает текущего пользователя из access_token cookie.
 
-    Returns:
-        UserDTO | None: Пользователь или None, если не авторизован.
+    Raises:
+        UnauthorizedError: Если токен отсутствует или невалиден.
     """
     token = request.cookies.get("access_token")
     if not token:
-        return None
+        raise UnauthorizedError("Пользователь не авторизован или сессия истекла")
 
     try:
         parsed = paseto.parse(key=token_key, purpose="local", token=token)
         claims = parsed["message"]
 
         if claims.get("type") != "access":
-            return None
+            raise UnauthorizedError("Неверный тип токена")
 
-        role = claims.get("role", Role.USER.value)
+        user_id = claims.get("sub")
+        if not user_id:
+            raise UnauthorizedError("В токене отсутствует идентификатор пользователя")
 
-        return UserDTO(
-            id=claims.get("sub", ""),
-            username=claims.get("username", ""),
-            email=claims.get("email", ""),
-            role=role,
-        )
     except Exception:
-        return None
+        raise InvalidTokenError("Невалидный токен") from None
+
+    user_service = container.resolve(UserService)
+    user = await user_service.get_user_by_id(user_id)
+
+    if not user:
+        raise UnauthorizedError("Пользователь не найден в базе данных")
+
+    return UserDTO.fromrow(user)
 
 
-def require_permission_dep(permission: Permission):
-    """Создаёт dependency для проверки разрешения.
+def require_permission(permission: Permission) -> Provide:
+    """Создаёт dependency для проверки конкретного разрешения.
 
-    Args:
-        permission (Permission): Требуемое разрешение.
-
-    Returns:
-        Provide dependency для Litestar.
+    Использование:
+        @get(dependencies={"user": require_permission(Permission.PRODUCT_VIEW)})
+        async def my_endpoint(user: UserDTO) -> ...:
+            ...
     """
-    return Provide(lambda _: require_permission(permission=permission))
+    async def _check(request: Request, container: Container) -> UserDTO:
+        user = await get_current_user(request, container)
+        if not RBACService.has_permission(user.role, permission):
+            raise ForbiddenError(
+                f"Недостаточно прав. Требуется разрешение: {permission.value}"
+            )
+        return user
+    return Provide(_check)
 
 
-def require_role_dep(allowed_roles: list[Role]):
-    """Создаёт dependency для проверки роли.
+def require_any_permission(permissions: list[Permission]) -> Provide:
+    """Создаёт dependency для проверки хотя бы одного разрешения."""
+    async def _check(request: Request, container: Container) -> UserDTO:
+        user = await get_current_user(request, container)
+        if not RBACService.has_any_permission(user.role, permissions):
+            raise ForbiddenError(
+                f"Недостаточно прав. Требуется одно из: {[p.value for p in permissions]}"
+            )
+        return user
+    return Provide(_check)
 
-    Args:
-        allowed_roles (list[Role]): Список допустимых ролей.
 
-    Returns:
-        Provide dependency для Litestar.
-    """
-    return Provide(lambda _: require_role(allowed_roles=allowed_roles))
+def require_role(allowed_roles: list[Role]) -> Provide:
+    """Создаёт dependency для проверки роли пользователя."""
+    async def _check(request: Request, container: Container) -> UserDTO:
+        user = await get_current_user(request, container)
+        user_role = Role(user.role)
+        if user_role not in allowed_roles:
+            raise ForbiddenError(
+                f"Доступ запрещён. Требуется одна из ролей: {[r.value for r in allowed_roles]}"
+            )
+        return user
+    return Provide(_check)

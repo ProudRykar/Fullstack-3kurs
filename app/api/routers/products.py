@@ -16,16 +16,21 @@ from litestar.status_codes import (
     HTTP_201_CREATED,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_429_TOO_MANY_REQUESTS,
 )
 from punq import Container
 
 from app.api.exceptions.problem_factory import ErrorCode, ErrorMeta, problem_factory
-from app.api.schemas.product_dto import ProductCreateDTO, ProductDTO, ProductSearchDTO
+from app.api.schemas.product_dto import ProductCellDTO, ProductCreateDTO, ProductDTO, ProductSearchDTO, ProductSearchResultDTO
+from app.api.schemas.user_dto import UserDTO
+from app.core.domain.models.permission import Permission
 from app.core.domain.models.product import Product
+from app.core.middleware.rbac import get_current_user, require_permission
 from app.core.services.auth_service import AuthService
 from app.core.services.product_service import ProductService
+from app.core.services.warehouse_service import WarehouseService
 
 
 @get(
@@ -34,7 +39,7 @@ from app.core.services.product_service import ProductService
     description="Поиск товара по штрихкоду, QR-коду или RFID",
     tags=["Товары"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
     dto=DataclassDTO[ProductSearchDTO],
     return_dto=DataclassDTO[ProductDTO],
     responses={
@@ -58,6 +63,10 @@ from app.core.services.product_service import ProductService
             description="Не авторизован",
             data_container=ErrorMeta,
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
         HTTP_429_TOO_MANY_REQUESTS: ResponseSpec(
             description="Слишком много запросов",
             data_container=ErrorMeta,
@@ -67,15 +76,77 @@ from app.core.services.product_service import ProductService
 async def search_product(
     code: str,
     container: Container,
-) -> ProductDTO:
+    current_user: UserDTO,
+    warehouse_id: str | None = None,
+) -> dict:
     """Поиск товара по коду."""
     product_service = container.resolve(ProductService)
+    warehouse_service = container.resolve(WarehouseService)
 
     product = await product_service.find_by_code(code)
     if not product:
         raise ValueError("Товар не найден")
 
-    return ProductDTO.from_product(product)
+    result = ProductDTO.from_product(product).__dict__
+
+    if warehouse_id:
+        cell = await warehouse_service.find_product_in_warehouse(warehouse_id, product.barcode)
+        if not cell:
+            raise ValueError("Товар не найден на этом складе")
+        result["cell_code"] = cell.code
+        result["cell_quantity"] = cell.quantity
+        result["cell_capacity"] = cell.capacity
+
+    return result
+
+
+@get(
+    "/search-by-name",
+    summary="Поиск товаров по названию",
+    description="Поиск товаров по названию, артикулу или штрихкоду с информацией о ячейках",
+    tags=["Товары"],
+    status_code=HTTP_200_OK,
+    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
+    responses={
+        HTTP_200_OK: ResponseSpec(
+            description="Список найденных товаров",
+            data_container=ProductSearchResultDTO,
+        ),
+        HTTP_401_UNAUTHORIZED: ResponseSpec(
+            description="Не авторизован",
+            data_container=ErrorMeta,
+        ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
+        HTTP_429_TOO_MANY_REQUESTS: ResponseSpec(
+            description="Слишком много запросов",
+            data_container=ErrorMeta,
+        ),
+    },
+)
+async def search_products_by_name(
+    q: str,
+    container: Container,
+    current_user: UserDTO,
+) -> list[dict]:
+    """Поиск товаров по названию/артикулу/штрихкоду."""
+    product_service = container.resolve(ProductService)
+    warehouse_service = container.resolve(WarehouseService)
+
+    products = await product_service.search(q)
+
+    result = []
+    for product in products:
+        product_dto = ProductDTO.from_product(product)
+        cells = await warehouse_service.find_cells_by_barcode(product.barcode)
+        result.append({
+            "product": product_dto.__dict__,
+            "cells": cells,
+        })
+
+    return result
 
 
 @get(
@@ -84,7 +155,7 @@ async def search_product(
     description="Получить товар по ID",
     tags=["Товары"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
     return_dto=DataclassDTO[ProductDTO],
     responses={
         HTTP_200_OK: ResponseSpec(
@@ -95,11 +166,16 @@ async def search_product(
             description="Товар не найден",
             data_container=ErrorMeta,
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
     },
 )
 async def get_product(
     product_id: str,
     container: Container,
+    current_user: UserDTO,
 ) -> ProductDTO:
     """Получить товар по ID."""
     product_service = container.resolve(ProductService)
@@ -117,7 +193,7 @@ async def get_product(
     description="Создать новый товар",
     tags=["Товары"],
     status_code=HTTP_201_CREATED,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.PRODUCT_CREATE)},
     dto=DataclassDTO[ProductCreateDTO],
     return_dto=DataclassDTO[ProductDTO],
     responses={
@@ -129,11 +205,16 @@ async def get_product(
             description="Ошибка",
             data_container=ErrorMeta,
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
     },
 )
 async def create_product(
     data: ProductCreateDTO,
     container: Container,
+    current_user: UserDTO,
 ) -> ProductDTO:
     """Создать товар."""
     product_service = container.resolve(ProductService)
@@ -158,7 +239,7 @@ async def create_product(
     description="Обновить товар",
     tags=["Товары"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.PRODUCT_UPDATE)},
     dto=DataclassDTO[ProductCreateDTO],
     return_dto=DataclassDTO[ProductDTO],
     responses={
@@ -170,12 +251,17 @@ async def create_product(
             description="Товар не найден",
             data_container=ErrorMeta,
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
     },
 )
 async def update_product(
     product_id: str,
     data: ProductCreateDTO,
     container: Container,
+    current_user: UserDTO,
 ) -> ProductDTO:
     """Обновить товар."""
     product_service = container.resolve(ProductService)
@@ -205,7 +291,7 @@ async def update_product(
     description="Удалить товар",
     tags=["Товары"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.PRODUCT_DELETE)},
     responses={
         HTTP_200_OK: ResponseSpec(
             description="Товар удалён",
@@ -215,11 +301,16 @@ async def update_product(
             description="Товар не найден",
             data_container=ErrorMeta,
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
     },
 )
 async def delete_product(
     product_id: str,
     container: Container,
+    current_user: UserDTO,
 ) -> dict:
     """Удалить товар."""
     product_service = container.resolve(ProductService)
@@ -231,11 +322,47 @@ async def delete_product(
     return {"detail": "Товар удалён"}
 
 
+#@get(
+#    "/",
+#    summary="Список всех товаров",
+#    description="Получить список всех товаров с пагинацией",
+#    tags=["Товары"],
+#    status_code=HTTP_200_OK,
+#    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
+#    return_dto=DataclassDTO[ProductListDTO],
+#    responses={
+#        HTTP_200_OK: ResponseSpec(
+#            description="Список товаров",
+#            data_container=ProductListDTO,
+#        ),
+#        HTTP_403_FORBIDDEN: ResponseSpec(
+#            description="Недостаточно прав",
+#            data_container=ErrorMeta,
+#        ),
+#    },
+#)
+#async def list_products(
+#    container: Container,
+#    current_user: UserDTO,
+#    limit: int = 100,
+#    skip: int = 0,
+#) -> ProductListDTO:
+#    """Получить список всех товаров."""
+#    product_service = container.resolve(ProductService)
+#    products = await product_service.get_all(limit=limit, skip=skip)
+#    return ProductListDTO(
+#        items=[ProductDTO.from_product(p) for p in products],
+#        total=len(products),
+#    )
+#
+
 products_router = Router(
     path="/products",
     tags=["Товары"],
     route_handlers=[
+        #list_products,
         search_product,
+        search_products_by_name,
         get_product,
         create_product,
         update_product,

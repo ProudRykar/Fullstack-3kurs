@@ -23,45 +23,9 @@ from app.api.schemas.user_dto import RoleUpdateDTO, UserDTO
 from app.core.domain.models.permission import Permission
 from app.core.domain.models.role import Role
 from app.core.errors.auth import ForbiddenError, UnauthorizedError
+from app.core.middleware.rbac import require_permission
 from app.core.services.auth_service import AuthService
 from app.core.services.user_service import UserService
-
-
-async def require_admin(request: Request, container: Container) -> UserDTO:
-    """Dependency для проверки роли admin."""
-    auth_service = container.resolve(AuthService)
-
-    token = request.cookies.get("access_token")
-    if not token:
-        raise UnauthorizedError("Пользователь не авторизован")
-
-    from app.config import token_key
-    import paseto
-
-    try:
-        parsed = paseto.parse(key=token_key, purpose="local", token=token)
-        claims = parsed["message"]
-
-        if claims.get("type") != "access":
-            raise UnauthorizedError("Неверный тип токена")
-
-        role = claims.get("role", Role.USER.value)
-        if role != Role.ADMIN.value:
-            raise ForbiddenError("Доступ только для администраторов")
-
-        return UserDTO(
-            id=str(claims.get("sub", "")),
-            username=claims.get("username", ""),
-            email=claims.get("email", ""),
-            role=role,
-        )
-    except Exception as e:
-        if isinstance(e, (UnauthorizedError, ForbiddenError)):
-            raise
-        raise UnauthorizedError("Невалидный токен")
-
-
-from litestar import Request
 
 
 @get(
@@ -70,7 +34,7 @@ from litestar import Request
     description="Возвращает список всех пользователей (только для администраторов).",
     tags=["Admin"],
     status_code=HTTP_200_OK,
-    dependencies={"current_admin": Provide(require_admin)},
+    dependencies={"current_admin": require_permission(Permission.USER_LIST)},
     responses={
         HTTP_200_OK: ResponseSpec(
             description="Список пользователей",
@@ -119,7 +83,7 @@ async def list_users(
     description="Изменяет роль пользователя (только для администраторов).",
     tags=["Admin"],
     status_code=HTTP_200_OK,
-    dependencies={"current_admin": Provide(require_admin)},
+    dependencies={"current_admin": require_permission(Permission.USER_UPDATE_ROLE)},
     dto=DataclassDTO[RoleUpdateDTO],
     return_dto=DataclassDTO[UserDTO],
     responses={

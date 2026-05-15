@@ -63,7 +63,6 @@ class ReceiptCreateItemDTO:
 
     barcode: str
     quantity: int
-    price: float
 
 
 @dataclass

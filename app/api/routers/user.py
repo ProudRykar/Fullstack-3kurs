@@ -18,6 +18,7 @@ from litestar.status_codes import (
     HTTP_201_CREATED,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
     HTTP_429_TOO_MANY_REQUESTS,
 )
 from punq import Container
@@ -26,7 +27,9 @@ from app.api.exceptions.problem_factory import ErrorCode, ErrorMeta, problem_fac
 from app.api.schemas.image_dto import ImageDTO
 from app.api.schemas.user_dto import UserCreateDTO, UserDTO
 from app.core.domain.models.image import UploadedImage
+from app.core.domain.models.permission import Permission
 from app.core.domain.models.user import User
+from app.core.middleware.rbac import require_permission
 from app.core.services.auth_service import AuthService
 from app.core.services.user_service import UserService
 
@@ -74,20 +77,7 @@ async def create_user(
     data: UserCreateDTO,
     container: Container,
 ) -> UserDTO:
-    """Создание нового пользователя.
-
-    Выполняет:
-        - Валидацию входных данных.
-        - Создание пользователя в БД.
-        - Преобразование результата в DTO.
-
-    Args:
-        data (UserCreateDTO): Данные нового пользователя (username, email, password, repeat_password).
-        container (Container): DI-контейнер для получения сервисов (UserService).
-
-    Returns:
-        UserDTO: Объект созданного пользователя.
-    """
+    """Создание нового пользователя."""
     user_service = container.resolve(UserService)
 
     user: User = await user_service.create_user(
@@ -108,7 +98,7 @@ async def create_user(
     tags=["Пользователь"],
     status_code=HTTP_201_CREATED,
     return_dto=DataclassDTO[ImageDTO],
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.IMAGE_UPLOAD)},
     responses={
         HTTP_201_CREATED: ResponseSpec(
             description="Изображение успешно загружено",
@@ -138,6 +128,10 @@ async def create_user(
                 )
             ],
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
         HTTP_429_TOO_MANY_REQUESTS: ResponseSpec(
             description="Слишком много запросов",
             data_container=ErrorMeta,
@@ -157,18 +151,7 @@ async def upload_image(
     current_user: UserDTO,
     data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
 ) -> ImageDTO:
-    """Загрузка изображения для текущего пользователя.
-
-    Принимает один файл изображения и сохраняет его в систему хранения.
-
-    Args:
-        container (Container): DI-контейнер для получения сервисов (UserService).
-        current_user (UserDTO): Текущий авторизованный пользователь.
-        data (UploadFile): Загруженный файл изображения.
-
-    Returns:
-        ImageDTO: DTO загруженного изображения, включая URL и идентификатор.
-    """
+    """Загрузка изображения для текущего пользователя."""
     user_service = container.resolve(UserService)
 
     image: UploadedImage = await user_service.upload_image(
@@ -189,7 +172,7 @@ async def upload_image(
     tags=["Пользователь"],
     status_code=HTTP_200_OK,
     return_dto=DataclassDTO[ImageDTO],
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.IMAGE_LIST_OWN)},
     responses={
         HTTP_200_OK: ResponseSpec(
             description="Список изображений пользователя",
@@ -206,6 +189,10 @@ async def upload_image(
                     ),
                 )
             ],
+        ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
         ),
         HTTP_429_TOO_MANY_REQUESTS: ResponseSpec(
             description="Слишком много запросов",
@@ -225,18 +212,7 @@ async def get_all_user_images(
     container: Container,
     current_user: UserDTO,
 ) -> list[ImageDTO]:
-    """Запрос всех изображений текущего пользователя.
-
-    Args:
-        container (Container): Контейнер зависимостей для получения сервисов.
-        current_user (UserDTO): Текущий авторизованный пользователь.
-
-    Returns:
-        list[ImageDTO]: Список DTO изображений пользователя.
-
-    Raises:
-        HTTPException: Если пользователь не авторизован.
-    """
+    """Запрос всех изображений текущего пользователя."""
     user_service = container.resolve(UserService)
 
     images: list[UploadedImage] = await user_service.get_all_user_images(
@@ -252,7 +228,7 @@ async def get_all_user_images(
     description="Удаляет изображение текущего пользователя по URL.",
     tags=["Пользователь"],
     status_code=HTTP_200_OK,
-    dependencies={"current_user": Provide(AuthService.get_current_user)},
+    dependencies={"current_user": require_permission(Permission.IMAGE_DELETE_OWN)},
     responses={
         HTTP_200_OK: ResponseSpec(
             description="Изображение успешно удалено",
@@ -282,6 +258,10 @@ async def get_all_user_images(
                 )
             ],
         ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
         HTTP_429_TOO_MANY_REQUESTS: ResponseSpec(
             description="Слишком много запросов",
             data_container=ErrorMeta,
@@ -298,22 +278,10 @@ async def get_all_user_images(
 )
 async def delete_image(
     container: Container,
-    current_user: UserDTO | None,
+    current_user: UserDTO,
     url: str,
 ) -> dict[str, str]:
-    """Удаляет изображение текущего пользователя по URL.
-
-    Args:
-        container (Container): Контейнер зависимостей для получения сервисов.
-        current_user (UserDTO | None): Текущий авторизованный пользователь или None, если не авторизован.
-        url (str): URL изображения для удаления.
-
-    Returns:
-        dict[str, str]: Словарь с сообщением об успешном удалении.
-
-    Raises:
-        HTTPException: Если пользователь не авторизован или произошла ошибка удаления изображения.
-    """
+    """Удаляет изображение текущего пользователя по URL."""
     user_service = container.resolve(UserService)
 
     await user_service.delete_image(user_id=current_user.id, url=url)

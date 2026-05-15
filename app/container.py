@@ -20,6 +20,7 @@ from app.adapters.repositories.inventory_repo import InventoryRepo
 from app.adapters.repositories.redis_blacklist_repo import RedisBlacklistRepo
 from app.adapters.repositories.redis_rate_limit_repo import RedisRateLimitRepo
 from app.adapters.repositories.user_repo import UserRepo
+from app.adapters.repositories.warehouse_repo import WarehouseRepo, WarehouseCellRepo
 from app.config import Config
 from app.core.services.auth_service import AuthService
 from app.core.services.security_service import SecurityService
@@ -27,6 +28,7 @@ from app.core.services.user_service import UserService
 from app.core.services.product_service import ProductService
 from app.core.services.receipt_service import ReceiptService
 from app.core.services.inventory_service import InventoryService
+from app.core.services.warehouse_service import WarehouseService
 from app.core.services.validation_service import (
     ImageValidator,
     ValidationService,
@@ -115,6 +117,8 @@ def build_container() -> Container:
     register_mongo_repo(ProductRepo, "products")
     register_mongo_repo(ReceiptRepo, "receipts")
     register_mongo_repo(InventoryRepo, "inventory")
+    register_mongo_repo(WarehouseRepo, "warehouses")
+    register_mongo_repo(WarehouseCellRepo, "warehouse_cells")
 
     container.register(SecurityService, SecurityService, scope=Scope.singleton)
     container.register(ValidationService, ValidationService, scope=Scope.singleton)
@@ -159,6 +163,7 @@ def build_container() -> Container:
         factory=lambda: ReceiptService(
             receipt_repo=container.resolve(ReceiptRepo),
             product_service=container.resolve(ProductService),
+            warehouse_service=container.resolve(WarehouseService),
         ),
     )
 
@@ -167,6 +172,14 @@ def build_container() -> Container:
         factory=lambda: InventoryService(
             inventory_repo=container.resolve(InventoryRepo),
             product_service=container.resolve(ProductService),
+        ),
+    )
+
+    container.register(
+        WarehouseService,
+        factory=lambda: WarehouseService(
+            warehouse_repo=container.resolve(WarehouseRepo),
+            cell_repo=container.resolve(WarehouseCellRepo),
         ),
     )
 

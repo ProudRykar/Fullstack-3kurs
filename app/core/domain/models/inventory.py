@@ -53,6 +53,7 @@ class Inventory:
     scans: list[InventoryScan] = field(default_factory=list)
     status: str = "in_progress"
     created_by: str = ""
+    warehouse_id: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -61,6 +62,7 @@ class Inventory:
             "scans": [s.to_dict() for s in self.scans],
             "status": self.status,
             "created_by": self.created_by,
+            "warehouse_id": self.warehouse_id,
         }
 
     @classmethod
@@ -73,6 +75,7 @@ class Inventory:
             scans=scans,
             status=data.get("status", "in_progress"),
             created_by=data.get("created_by", ""),
+            warehouse_id=data.get("warehouse_id", ""),
         )
 
     @property

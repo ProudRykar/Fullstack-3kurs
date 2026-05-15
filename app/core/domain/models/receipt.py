@@ -14,6 +14,7 @@ class ReceiptItem:
     barcode: str
     quantity: int
     price: float
+    cell_code: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -22,6 +23,7 @@ class ReceiptItem:
             "barcode": self.barcode,
             "quantity": self.quantity,
             "price": self.price,
+            "cell_code": self.cell_code,
         }
 
     @classmethod
@@ -32,6 +34,7 @@ class ReceiptItem:
             barcode=data.get("barcode", ""),
             quantity=data.get("quantity", 0),
             price=data.get("price", 0.0),
+            cell_code=data.get("cell_code", ""),
         )
 
 
@@ -46,6 +49,7 @@ class Receipt:
     status: str = "draft"  # draft, confirmed, cancelled
     created_by: str = ""
     confirmed_at: datetime | None = None
+    warehouse_id: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -55,6 +59,7 @@ class Receipt:
             "status": self.status,
             "created_by": self.created_by,
             "confirmed_at": self.confirmed_at,
+            "warehouse_id": self.warehouse_id,
         }
 
     @classmethod
@@ -68,6 +73,7 @@ class Receipt:
             status=data.get("status", "draft"),
             created_by=data.get("created_by", ""),
             confirmed_at=data.get("confirmed_at"),
+            warehouse_id=data.get("warehouse_id", ""),
         )
 
     @property

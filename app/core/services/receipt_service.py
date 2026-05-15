@@ -9,6 +9,7 @@ from app.adapters.repositories.abc_repo import RepositoryInterface
 from app.adapters.repositories.receipt_repo import ReceiptRepo
 from app.core.domain.models.receipt import Receipt, ReceiptItem
 from app.core.services.product_service import ProductService
+from app.core.services.warehouse_service import WarehouseService
 
 
 class ReceiptService:
@@ -18,9 +19,11 @@ class ReceiptService:
         self,
         receipt_repo: RepositoryInterface,
         product_service: ProductService,
+        warehouse_service: WarehouseService | None = None,
     ) -> None:
         self._repo = receipt_repo
         self._products = product_service
+        self._warehouse_service = warehouse_service
 
     async def _generate_number(self) -> str:
         """Генерация номера приёмки."""
@@ -28,7 +31,7 @@ class ReceiptService:
         count = await collection.count_documents({})
         return f"ПР-{str(count + 1).zfill(5)}"
 
-    async def create(self, created_by: str) -> Receipt:
+    async def create(self, created_by: str, warehouse_id: str = "") -> Receipt:
         """Создать новую приёмку."""
         now = datetime.utcnow()
         number = await self._generate_number()
@@ -40,6 +43,7 @@ class ReceiptService:
             "status": "draft",
             "created_by": created_by,
             "confirmed_at": None,
+            "warehouse_id": warehouse_id,
         }
 
         id = await self._repo.add(data)
@@ -58,7 +62,6 @@ class ReceiptService:
         receipt_id: str,
         product_id: str,
         quantity: int,
-        price: float,
     ) -> Receipt | None:
         """Добавить товар в приёмку."""
         receipt = await self.get_by_id(receipt_id)
@@ -74,7 +77,7 @@ class ReceiptService:
             product_name=product.name,
             barcode=product.barcode,
             quantity=quantity,
-            price=price,
+            price=product.price,
         )
 
         receipt.items.append(item)
@@ -102,7 +105,7 @@ class ReceiptService:
         return await self.get_by_id(receipt_id)
 
     async def confirm(self, receipt_id: str) -> Receipt | None:
-        """Подтвердить приёмк�� (увеличить количество товаров)."""
+        """Подтвердить приёмку (увеличить количество товаров, разместить в ячейках)."""
         receipt = await self.get_by_id(receipt_id)
         if not receipt or receipt.status != "draft":
             return None
@@ -110,12 +113,27 @@ class ReceiptService:
         for item in receipt.items:
             await self._products.increase_quantity(item.product_id, item.quantity)
 
+            if self._warehouse_service and receipt.warehouse_id:
+                cell = await self._warehouse_service.auto_assign_cell(
+                    warehouse_id=receipt.warehouse_id,
+                    product_id=item.product_id,
+                    product_name=item.product_name,
+                    product_barcode=item.barcode,
+                    quantity=item.quantity,
+                )
+                if cell:
+                    item.cell_code = cell.code
+
         receipt.status = "confirmed"
         receipt.confirmed_at = datetime.utcnow()
 
         await self._repo.update(
             {"_id": ObjectId(receipt_id)},
-            {"$set": {"status": "confirmed", "confirmed_at": receipt.confirmed_at}},
+            {"$set": {
+                "status": "confirmed",
+                "confirmed_at": receipt.confirmed_at,
+                "items": [i.to_dict() for i in receipt.items],
+            }},
         )
 
         return await self.get_by_id(receipt_id)
@@ -133,9 +151,12 @@ class ReceiptService:
 
         return await self.get_by_id(receipt_id)
 
-    async def get_all(self, limit: int = 50, skip: int = 0) -> list[Receipt]:
+    async def get_all(self, limit: int = 50, skip: int = 0, warehouse_id: str | None = None) -> list[Receipt]:
         """Получить все приёмки."""
-        results = await self._repo.get_many({}, limit=limit, skip=skip)
+        query = {}
+        if warehouse_id:
+            query["warehouse_id"] = warehouse_id
+        results = await self._repo.get_many(query, limit=limit, skip=skip)
         return [Receipt.from_dict(r) for r in results]
 
     async def get_drafts(self, limit: int = 20) -> list[Receipt]:

@@ -65,6 +65,26 @@ class ProductCreateDTO:
 
 
 @dataclass
+class ProductCellDTO:
+    """Ячейка с товаром (для результата поиска)."""
+
+    warehouse_id: str
+    warehouse_name: str
+    cell_id: str
+    cell_code: str
+    quantity: int
+    capacity: int
+
+
+@dataclass
+class ProductSearchResultDTO:
+    """Результат поиска товара по названию."""
+
+    product: ProductDTO
+    cells: list[ProductCellDTO]
+
+
+@dataclass
 class ProductListDTO:
     """Список товаров."""
 
