@@ -9,6 +9,7 @@ import { ReceiptsPage } from './pages/ReceiptsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { AdminPage } from './pages/AdminPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { ProductsListPage } from './pages/ProductsListPage';
 import { WarehousesPage } from './pages/WarehousesPage';
 import { WarehouseDetailPage } from './pages/WarehouseDetailPage';
 
@@ -46,6 +47,14 @@ function App() {
           />
           <Route
             path="/products"
+            element={
+              <PrivateRoute>
+                <ProductsListPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/gallery"
             element={
               <PrivateRoute>
                 <DashboardPage />

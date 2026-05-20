@@ -13,6 +13,7 @@ from litestar.datastructures import UploadFile
 from app.adapters.gateways.s3 import MinioGateway
 from app.adapters.repositories.abc_repo import RepositoryInterface
 from app.core.domain.models.image import UploadedImage
+from app.core.domain.models.role import Role
 from app.core.domain.models.user import User
 from app.core.errors.auth import (
     EmailAlreadyTakenError,
@@ -102,11 +103,14 @@ class UserService:
 
         salt, _hash = self._security.hash_password(password)
         password_hash = self._security.serialize_hash(salt, _hash)
+        user_count = await self._user_repo.count()
+        role = Role.ADMIN if user_count == 0 else Role.USER
 
         user_data = {
             "username": username,
             "email": email.lower(),
             "password_hash": password_hash,
+            "role": role,
         }
         try:
             id = await self._user_repo.add(user_data)

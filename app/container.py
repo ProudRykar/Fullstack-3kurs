@@ -144,6 +144,7 @@ def build_container() -> Container:
             validation=container.resolve(ValidationService),
             redis_blacklist_repo=container.resolve(RedisBlacklistRepo),
             redis_rate_limit_repo=container.resolve(RedisRateLimitRepo),
+            container=container,
         ),
     )
 

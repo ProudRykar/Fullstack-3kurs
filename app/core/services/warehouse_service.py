@@ -8,6 +8,7 @@ from app.adapters.repositories.abc_repo import RepositoryInterface
 from app.adapters.repositories.warehouse_repo import WarehouseCellRepo, WarehouseRepo
 from app.core.domain.models.warehouse import Warehouse
 from app.core.domain.models.warehouse_cell import WarehouseCell
+from app.core.errors.warehouse import WarehouseCapacityError
 
 
 class WarehouseService:
@@ -45,28 +46,49 @@ class WarehouseService:
         return [Warehouse.from_dict(r) for r in results]
 
     async def update(self, warehouse_id: str, name: str, location: str, cell_count: int = 0, capacity_per_cell: int = 0) -> Warehouse | None:
+        # Получаем текущий склад до обновления
+        current_warehouse = await self.get_by_id(warehouse_id)
+        if not current_warehouse:
+            return None
+        
+        old_cell_count = current_warehouse.cell_count
+        old_capacity_per_cell = current_warehouse.capacity_per_cell
+        
+        # Обновляем склад
         await self._repo.update(
             {"_id": ObjectId(warehouse_id)},
             {
                 "$set": {
-                    "name": name, "location": location,
-                    "cell_count": cell_count, "capacity_per_cell": capacity_per_cell,
+                    "name": name, 
+                    "location": location,
+                    "cell_count": cell_count, 
+                    "capacity_per_cell": capacity_per_cell,
                     "updated_at": datetime.utcnow(),
                 }
             },
         )
-
-        await self._cell_repo.update_many(
-            {"warehouse_id": warehouse_id},
-            {"$set": {"capacity": capacity_per_cell}},
-        )
-
+        
+        # Проверяем, уменьшилась ли общая вместимость
+        old_total_capacity = old_cell_count * old_capacity_per_cell
+        new_total_capacity = cell_count * capacity_per_cell
+        
+        if new_total_capacity < old_total_capacity:
+            raise WarehouseCapacityError("Невозможно уменьшить размер ячейки")
+        
+        # Обновляем capacity для всех ячеек
+        if capacity_per_cell != old_capacity_per_cell:
+            await self._cell_repo.update_many(
+                {"warehouse_id": warehouse_id},
+                {"$set": {"capacity": capacity_per_cell}},
+            )
+        
+        # Синхронизируем количество ячеек
         await self._sync_cells(
             warehouse_id,
             cell_count,
             capacity_per_cell,
         )
-        print("matched:", await self._cell_repo.get_many({"warehouse_id": warehouse_id}))
+        
         return await self.get_by_id(warehouse_id)
 
     async def delete(self, warehouse_id: str) -> bool:

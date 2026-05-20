@@ -23,7 +23,6 @@ from app.core.services.security_service import SecurityService
 from app.core.services.user_service import UserService
 from app.core.services.validation_service import ValidationService
 
-
 class AuthService:
     """Сервис для аутентификации пользователей.
 
@@ -36,6 +35,7 @@ class AuthService:
 
     def __init__(
         self,
+        container: Container,
         repository: RepositoryInterface,
         security: SecurityService,
         validation: ValidationService,
@@ -51,6 +51,7 @@ class AuthService:
             redis_blacklist_repo (RedisBlacklistRepo): Репозиторий для черного списка токенов.
             redis_rate_limit_repo (RedisRateLimitRepo): Репозиторий для хранения данных о rate limit.
         """
+        self._container = container  # Добавьте это
         self._repo = repository
         self._security = security
         self._validation = validation
@@ -246,7 +247,7 @@ class AuthService:
             ):
                 raise UnauthorizedError("Access токен в чёрном списке")
 
-        user_service = container.resolve(UserService)
+        user_service = self._container.resolve(UserService)
         user = await user_service.get_user_by_id(user_id)
         user_role = user.get("role", Role.USER.value) if user else Role.USER.value
 

@@ -139,7 +139,7 @@ async def auth_user(
         secure=False,
         max_age=config.REFRESH_TOKEN_EXPIRE_TIME,
         samesite="lax",
-        path="/auth",
+        path="/",
     )
     return response
 
@@ -338,7 +338,7 @@ async def refresh_user(request: Request, container: Container) -> Response:
         secure=False,
         max_age=config.REFRESH_TOKEN_EXPIRE_TIME,
         samesite="lax",
-        path="/auth",
+        path="/",
     )
 
     return response

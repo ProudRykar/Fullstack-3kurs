@@ -99,6 +99,21 @@ class MongoRepo(RepositoryInterface):
         collection = await self._init_collection()
         result = collection.find(query).skip(skip).limit(limit)
         return await monitored_mongo_call("find_many", result.to_list())
+    
+    async def count(self, query: dict[str, Any] = None) -> int:
+      """Подсчитывает количество документов в коллекции.
+      
+      Args:
+          query (dict[str, Any], optional): Словарь с фильтром. 
+              Если не указан, считает все документы.
+      
+      Returns:
+          int: Количество документов, соответствующих фильтру.
+      """
+      collection = await self._init_collection()
+      if query is None:
+          query = {}
+      return await monitored_mongo_call("count_documents", collection.count_documents(query))
 
     async def update(
         self, query: dict[str, Any], update_data: dict[str, Any]

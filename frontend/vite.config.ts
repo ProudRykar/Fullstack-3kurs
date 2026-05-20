@@ -11,6 +11,8 @@ function bypassHtml(req: Connect.IncomingMessage): string | undefined {
 }
 
 // https://vite.dev/config/
+const API_PROXY_TARGET = process.env.VITE_API_PROXY || 'http://localhost:8000'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -20,37 +22,37 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/auth': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },
       '/users': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },
       '/products': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },
       '/receipts': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },
       '/inventory': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },
       '/admin': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },
       '/warehouses': {
-        target: 'http://localhost:8001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
         bypass: (req) => bypassHtml(req),
       },

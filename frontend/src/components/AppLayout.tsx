@@ -16,6 +16,7 @@ export function AppLayout({ children, title }: AppLayoutProps) {
 
   const navItems = [
     { path: '/', label: 'Поиск товара' },
+    { path: '/products', label: 'Товары' },
     { path: '/receipts', label: 'Приёмка' },
     { path: '/inventory', label: 'Инвентаризация' },
     { path: '/warehouses', label: 'Склады' },

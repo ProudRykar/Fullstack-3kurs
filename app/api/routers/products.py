@@ -1,16 +1,10 @@
 """Эндпоинты для товаров."""
 
-from typing import Annotated
 
-from bson import ObjectId
 from litestar import Router, delete, get, patch, post
-from litestar.datastructures import UploadFile
-from litestar.di import Provide
 from litestar.dto import DataclassDTO
-from litestar.enums import RequestEncodingType
 from litestar.openapi import ResponseSpec
 from litestar.openapi.spec import Example
-from litestar.params import Parameter
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -23,12 +17,16 @@ from litestar.status_codes import (
 from punq import Container
 
 from app.api.exceptions.problem_factory import ErrorCode, ErrorMeta, problem_factory
-from app.api.schemas.product_dto import ProductCellDTO, ProductCreateDTO, ProductDTO, ProductSearchDTO, ProductSearchResultDTO
+from app.api.schemas.product_dto import (
+    ProductCreateDTO,
+    ProductDTO,
+    ProductListDTO,
+    ProductSearchDTO,
+    ProductSearchResultDTO,
+)
 from app.api.schemas.user_dto import UserDTO
 from app.core.domain.models.permission import Permission
-from app.core.domain.models.product import Product
-from app.core.middleware.rbac import get_current_user, require_permission
-from app.core.services.auth_service import AuthService
+from app.core.middleware.rbac import require_permission
 from app.core.services.product_service import ProductService
 from app.core.services.warehouse_service import WarehouseService
 
@@ -90,7 +88,9 @@ async def search_product(
     result = ProductDTO.from_product(product).__dict__
 
     if warehouse_id:
-        cell = await warehouse_service.find_product_in_warehouse(warehouse_id, product.barcode)
+        cell = await warehouse_service.find_product_in_warehouse(
+            warehouse_id, product.barcode
+        )
         if not cell:
             raise ValueError("Товар не найден на этом складе")
         result["cell_code"] = cell.code
@@ -141,10 +141,12 @@ async def search_products_by_name(
     for product in products:
         product_dto = ProductDTO.from_product(product)
         cells = await warehouse_service.find_cells_by_barcode(product.barcode)
-        result.append({
-            "product": product_dto.__dict__,
-            "cells": cells,
-        })
+        result.append(
+            {
+                "product": product_dto.__dict__,
+                "cells": cells,
+            }
+        )
 
     return result
 
@@ -322,45 +324,45 @@ async def delete_product(
     return {"detail": "Товар удалён"}
 
 
-#@get(
-#    "/",
-#    summary="Список всех товаров",
-#    description="Получить список всех товаров с пагинацией",
-#    tags=["Товары"],
-#    status_code=HTTP_200_OK,
-#    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
-#    return_dto=DataclassDTO[ProductListDTO],
-#    responses={
-#        HTTP_200_OK: ResponseSpec(
-#            description="Список товаров",
-#            data_container=ProductListDTO,
-#        ),
-#        HTTP_403_FORBIDDEN: ResponseSpec(
-#            description="Недостаточно прав",
-#            data_container=ErrorMeta,
-#        ),
-#    },
-#)
-#async def list_products(
-#    container: Container,
-#    current_user: UserDTO,
-#    limit: int = 100,
-#    skip: int = 0,
-#) -> ProductListDTO:
-#    """Получить список всех товаров."""
-#    product_service = container.resolve(ProductService)
-#    products = await product_service.get_all(limit=limit, skip=skip)
-#    return ProductListDTO(
-#        items=[ProductDTO.from_product(p) for p in products],
-#        total=len(products),
-#    )
-#
+@get(
+    "/",
+    summary="Список всех товаров",
+    description="Получить список всех товаров с пагинацией",
+    tags=["Товары"],
+    status_code=HTTP_200_OK,
+    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
+    return_dto=DataclassDTO[ProductListDTO],
+    responses={
+        HTTP_200_OK: ResponseSpec(
+            description="Список товаров",
+            data_container=ProductListDTO,
+        ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
+    },
+)
+async def list_products(
+    container: Container,
+    current_user: UserDTO,
+    limit: int = 100,
+    skip: int = 0,
+) -> ProductListDTO:
+    """Получить список всех товаров."""
+    product_service = container.resolve(ProductService)
+    products = await product_service.get_all(limit=limit, skip=skip)
+    return ProductListDTO(
+        items=[ProductDTO.from_product(p) for p in products],
+        total=len(products),
+    )
+
 
 products_router = Router(
     path="/products",
     tags=["Товары"],
     route_handlers=[
-        #list_products,
+        list_products,
         search_product,
         search_products_by_name,
         get_product,

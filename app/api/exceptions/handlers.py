@@ -34,6 +34,7 @@ from app.core.errors.validation import (
     UsernameValidationError,
     IdentificatorIsNullError,
 )
+from app.core.errors.warehouse import WarehouseCapacityError
 
 
 def create_problem_response(
@@ -89,6 +90,7 @@ ERROR_MAPPING: dict[ErrorCode, tuple[type[Exception], ...]] = {
         EmailValidationError,
         IdentificatorIsNullError,
         ValueError,
+        WarehouseCapacityError
     ),
     ErrorCode.CONFLICT_ERROR: (
         EmailAlreadyTakenError,

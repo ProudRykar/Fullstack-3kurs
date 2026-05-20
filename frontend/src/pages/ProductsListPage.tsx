@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { productApi } from '../services/api';
 import { hasPermission } from '../utils/permissions';
 import { AppLayout } from '../components/AppLayout';
-import type { Product, Role } from '../types';
+import type { Product, Role, ProblemDetail } from '../types';
 
 export function ProductsListPage() {
   const { role } = useAuth();
@@ -17,7 +17,9 @@ export function ProductsListPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadProducts();
+    const abort = new AbortController();
+    loadProducts(abort.signal);
+    return () => abort.abort();
   }, []);
 
   useEffect(() => {
@@ -38,14 +40,24 @@ export function ProductsListPage() {
     ));
   }, [query, products]);
 
-  const loadProducts = async () => {
+  const loadProducts = async (signal?: AbortSignal) => {
     setLoading(true);
     setError('');
     try {
-      const data = await productApi.getAll(200);
-      setProducts(data.items || data);
+      const response = await fetch('/products?limit=200', {
+        credentials: 'include',
+        signal,
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.detail || `Ошибка ${response.status}`);
+      }
+      const data = await response.json();
+      const items: Product[] = Array.isArray(data) ? data : (data?.items ?? []);
+      setProducts(items);
     } catch (err: any) {
-      setError(err.detail || 'Ошибка загрузки товаров');
+      if (err.name === 'AbortError') return;
+      setError((err as ProblemDetail)?.detail || err?.message || 'Ошибка загрузки товаров');
     } finally {
       setLoading(false);
     }
