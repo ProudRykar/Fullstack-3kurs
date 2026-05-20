@@ -34,6 +34,10 @@ class Product:
     location: str = ""
     quantity: int = 0
     price: float = 0.0
+    weight: float = 0.0
+    height: float = 0.0
+    width: float = 0.0
+    length: float = 0.0
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -54,6 +58,10 @@ class Product:
             "location": self.location,
             "quantity": self.quantity,
             "price": self.price,
+            "weight": self.weight,
+            "height": self.height,
+            "width": self.width,
+            "length": self.length,
             "created_at": self.created_at or datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -72,6 +80,10 @@ class Product:
             location=data.get("location", ""),
             quantity=data.get("quantity", 0),
             price=data.get("price", 0.0),
+            weight=data.get("weight", 0),
+            height=data.get("height", 0),
+            width=data.get("width", 0),
+            length=data.get("length", 0),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )

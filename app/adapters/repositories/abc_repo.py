@@ -59,6 +59,14 @@ class RepositoryInterface(ABC):
             dict[str, Any]: Обновленный объект
         """
         raise NotImplementedError
+    
+    @abstractmethod
+    async def update_many(
+        self,
+        query: dict[str, Any],
+        update_data: dict[str, Any],
+    ) -> int:
+        pass
 
     @abstractmethod
     async def delete(self, query: dict[str, Any]) -> bool:

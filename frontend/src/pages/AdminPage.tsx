@@ -15,6 +15,10 @@ function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onEr
   const [location, setLocation] = useState('');
   const [price, setPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
+  const [width, setWidth] = useState('');
+  const [length, setLength] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +33,15 @@ function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onEr
         category: category || undefined,
         location: location || undefined,
         price: parseFloat(price) || 0,
+        weight: parseFloat(weight) || 0,
+        height: parseFloat(height) || 0,
+        width: parseFloat(width) || 0,
+        length: parseFloat(length) || 0,
       };
       await productApi.create(data);
       setName(''); setSku(''); setBarcode(''); setQrcode('');
       setRfid(''); setCategory(''); setLocation('');
+      setWeight(''); setHeight(''); setWidth(''); setLength('');
       setPrice('');
       onSuccess();
     } catch (err) {
@@ -73,6 +82,22 @@ function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onEr
         <div>
           <label className="block mb-1 text-sm text-gray-400">Место</label>
           <input value={location} onChange={(e) => setLocation(e.target.value)} className="input-field" />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm text-gray-400">Вес</label>
+          <input type="number" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)} className="input-field" />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm text-gray-400">Высота</label>
+          <input type="number" step="0.01" value={height} onChange={(e) => setHeight(e.target.value)} className="input-field" />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm text-gray-400">Ширина</label>
+          <input type="number" step="0.01" value={width} onChange={(e) => setWidth(e.target.value)} className="input-field" />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm text-gray-400">Длина</label>
+          <input type="number" step="0.01" value={length} onChange={(e) => setLength(e.target.value)} className="input-field" />
         </div>
         <div>
           <label className="block mb-1 text-sm text-gray-400">Цена *</label>

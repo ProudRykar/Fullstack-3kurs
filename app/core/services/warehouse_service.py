@@ -56,9 +56,17 @@ class WarehouseService:
             },
         )
 
-        if cell_count > 0:
-            await self._sync_cells(warehouse_id, cell_count, capacity_per_cell)
+        await self._cell_repo.update_many(
+            {"warehouse_id": warehouse_id},
+            {"$set": {"capacity": capacity_per_cell}},
+        )
 
+        await self._sync_cells(
+            warehouse_id,
+            cell_count,
+            capacity_per_cell,
+        )
+        print("matched:", await self._cell_repo.get_many({"warehouse_id": warehouse_id}))
         return await self.get_by_id(warehouse_id)
 
     async def delete(self, warehouse_id: str) -> bool:

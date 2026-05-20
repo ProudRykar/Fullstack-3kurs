@@ -118,6 +118,20 @@ class MongoRepo(RepositoryInterface):
             collection.find_one_and_update(filter=query, update=update_data),
         )
         return result
+    
+    async def update_many(
+        self,
+        query: dict[str, Any],
+        update_data: dict[str, Any],
+    ) -> int:
+        collection = await self._init_collection()
+
+        result = await monitored_mongo_call(
+            "update_many",
+            collection.update_many(filter=query, update=update_data),
+        )
+
+        return result.modified_count
 
     async def delete(self, query: dict[str, Any]) -> bool:
         """Удаляет один документ из коллекции.

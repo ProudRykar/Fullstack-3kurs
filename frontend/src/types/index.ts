@@ -51,6 +51,10 @@ export interface ProductCreate {
   category?: string;
   location?: string;
   price: number;
+  weight: number;
+  height: number;
+  width: number;
+  length: number;
   qrcode?: string;
   rfid?: string;
 }
