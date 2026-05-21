@@ -33,16 +33,26 @@ class RepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_many(self, query: dict[str, Any], limit: int) -> list[dict[str, Any]]:
+    async def get_many(
+        self, query: dict[str, Any], limit: int = 1000, skip: int = 0,
+        sort: list[tuple[str, int]] | None = None,
+    ) -> list[dict[str, Any]]:
         """Получение нескольких объектов.
 
         Args:
             query (dict[str, Any]): Поисковый запрос
             limit (int): Кол-во объектов
+            skip (int): Сколько пропустить
+            sort (list[tuple[str, int]] | None): Сортировка [(field, dir), ...]
 
         Returns:
             list[dict[str, Any]]: Результат поиска
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def count(self, query: dict[str, Any] = None) -> int:
+        """Подсчёт количества документов."""
         raise NotImplementedError
 
     @abstractmethod

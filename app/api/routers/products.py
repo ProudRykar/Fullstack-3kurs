@@ -1,7 +1,10 @@
 """Эндпоинты для товаров."""
 
+from typing import Annotated
 
 from litestar import Router, delete, get, patch, post
+from litestar.enums import RequestEncodingType
+from litestar.params import Body
 from litestar.dto import DataclassDTO
 from litestar.openapi import ResponseSpec
 from litestar.openapi.spec import Example
@@ -14,6 +17,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
     HTTP_429_TOO_MANY_REQUESTS,
 )
+from litestar.datastructures import UploadFile
 from punq import Container
 
 from app.api.exceptions.problem_factory import ErrorCode, ErrorMeta, problem_factory
@@ -23,6 +27,7 @@ from app.api.schemas.product_dto import (
     ProductListDTO,
     ProductSearchDTO,
     ProductSearchResultDTO,
+    ProductImageDTO,
 )
 from app.api.schemas.user_dto import UserDTO
 from app.core.domain.models.permission import Permission
@@ -85,7 +90,9 @@ async def search_product(
     if not product:
         raise ValueError("Товар не найден")
 
-    result = ProductDTO.from_product(product).__dict__
+    images = await product_service.get_images(product.id) if product.images else []
+    urls = {img["id"]: img["url"] for img in images}
+    result = ProductDTO.from_product(product, presigned_urls=urls).__dict__
 
     if warehouse_id:
         cell = await warehouse_service.find_product_in_warehouse(
@@ -139,7 +146,9 @@ async def search_products_by_name(
 
     result = []
     for product in products:
-        product_dto = ProductDTO.from_product(product)
+        images = await product_service.get_images(product.id) if product.images else []
+        urls = {img["id"]: img["url"] for img in images}
+        product_dto = ProductDTO.from_product(product, presigned_urls=urls)
         cells = await warehouse_service.find_cells_by_barcode(product.barcode)
         result.append(
             {
@@ -228,6 +237,10 @@ async def create_product(
         category=data.category or "",
         location=data.location or "",
         price=data.price,
+        weight=data.weight,
+        height=data.height,
+        width=data.width,
+        length=data.length,
         qrcode=data.qrcode,
         rfid=data.rfid,
     )
@@ -325,9 +338,26 @@ async def delete_product(
 
 
 @get(
+    "/categories",
+    summary="Список категорий",
+    description="Получить список всех категорий товаров",
+    tags=["Товары"],
+    status_code=HTTP_200_OK,
+    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
+)
+async def list_categories(
+    container: Container,
+    current_user: UserDTO,
+) -> list[str]:
+    """Получить список всех категорий."""
+    product_service = container.resolve(ProductService)
+    return await product_service.get_categories()
+
+
+@get(
     "/",
     summary="Список всех товаров",
-    description="Получить список всех товаров с пагинацией",
+    description="Получить список всех товаров с фильтрацией, сортировкой и пагинацией",
     tags=["Товары"],
     status_code=HTTP_200_OK,
     dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
@@ -348,14 +378,145 @@ async def list_products(
     current_user: UserDTO,
     limit: int = 100,
     skip: int = 0,
+    search: str = "",
+    category: str = "",
+    min_price: float = 0,
+    max_price: float = 0,
+    sort_by: str = "name",
+    sort_order: str = "asc",
 ) -> ProductListDTO:
-    """Получить список всех товаров."""
+    """Получить список всех товаров с фильтрацией."""
     product_service = container.resolve(ProductService)
-    products = await product_service.get_all(limit=limit, skip=skip)
-    return ProductListDTO(
-        items=[ProductDTO.from_product(p) for p in products],
-        total=len(products),
+    products, total = await product_service.get_all(
+        limit=limit,
+        skip=skip,
+        search=search,
+        category=category,
+        min_price=min_price,
+        max_price=max_price,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
+
+    dtos = []
+    for p in products:
+        images = await product_service.get_images(p.id) if p.images else []
+        urls = {img["id"]: img["url"] for img in images}
+        dtos.append(ProductDTO.from_product(p, presigned_urls=urls))
+
+    return ProductListDTO(
+        items=dtos,
+        total=total,
+    )
+
+
+@post(
+    "/{product_id:str}/images",
+    summary="Загрузить изображение товара",
+    description="Загрузить изображение для товара",
+    tags=["Товары"],
+    status_code=HTTP_201_CREATED,
+    dependencies={"current_user": require_permission(Permission.PRODUCT_UPDATE)},
+    responses={
+        HTTP_201_CREATED: ResponseSpec(
+            description="Изображение загружено",
+            data_container=None,
+        ),
+        HTTP_400_BAD_REQUEST: ResponseSpec(
+            description="Ошибка",
+            data_container=ErrorMeta,
+        ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
+        HTTP_404_NOT_FOUND: ResponseSpec(
+            description="Товар не найден",
+            data_container=ErrorMeta,
+        ),
+    },
+)
+async def upload_product_image(
+    product_id: str,
+    data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
+    container: Container,
+    current_user: UserDTO,
+) -> dict:
+    """Загрузить изображение для товара."""
+    product_service = container.resolve(ProductService)
+    result = await product_service.upload_image(
+        product_id=product_id,
+        file=data,
+    )
+    return result
+
+
+@get(
+    "/{product_id:str}/images",
+    summary="Изображения товара",
+    description="Получить изображения товара с presigned URLs",
+    tags=["Товары"],
+    status_code=HTTP_200_OK,
+    dependencies={"current_user": require_permission(Permission.PRODUCT_VIEW)},
+    responses={
+        HTTP_200_OK: ResponseSpec(
+            description="Список изображений",
+            data_container=None,
+        ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
+        HTTP_404_NOT_FOUND: ResponseSpec(
+            description="Товар не найден",
+            data_container=ErrorMeta,
+        ),
+    },
+)
+async def get_product_images(
+    product_id: str,
+    container: Container,
+    current_user: UserDTO,
+) -> list[dict]:
+    """Получить изображения товара."""
+    product_service = container.resolve(ProductService)
+    return await product_service.get_images(product_id)
+
+
+@delete(
+    "/{product_id:str}/images/{image_id:str}",
+    summary="Удалить изображение товара",
+    description="Удалить изображение товара",
+    tags=["Товары"],
+    status_code=HTTP_200_OK,
+    dependencies={"current_user": require_permission(Permission.PRODUCT_UPDATE)},
+    responses={
+        HTTP_200_OK: ResponseSpec(
+            description="Изображение удалено",
+            data_container=None,
+        ),
+        HTTP_403_FORBIDDEN: ResponseSpec(
+            description="Недостаточно прав",
+            data_container=ErrorMeta,
+        ),
+        HTTP_404_NOT_FOUND: ResponseSpec(
+            description="Изображение не найдено",
+            data_container=ErrorMeta,
+        ),
+    },
+)
+async def delete_product_image(
+    product_id: str,
+    image_id: str,
+    container: Container,
+    current_user: UserDTO,
+) -> dict:
+    """Удалить изображение товара."""
+    product_service = container.resolve(ProductService)
+    success = await product_service.delete_image(product_id, image_id)
+    if not success:
+        raise ValueError("Изображение не найдено")
+    return {"detail": "Изображение удалено"}
 
 
 products_router = Router(
@@ -363,11 +524,15 @@ products_router = Router(
     tags=["Товары"],
     route_handlers=[
         list_products,
+        list_categories,
         search_product,
         search_products_by_name,
         get_product,
         create_product,
         update_product,
         delete_product,
+        upload_product_image,
+        get_product_images,
+        delete_product_image,
     ],
 )

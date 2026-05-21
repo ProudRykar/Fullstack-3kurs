@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { receiptApi } from '../services/api';
+import { receiptApi, productApi } from '../services/api';
 import { hasPermission } from '../utils/permissions';
 import { AppLayout } from '../components/AppLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -17,6 +17,8 @@ export function ReceiptsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; action: () => void } | null>(null);
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
 
@@ -61,6 +63,17 @@ export function ReceiptsPage() {
     try {
       const receipt = await receiptApi.get(id);
       setCurrentReceipt(receipt);
+
+      const imageMap: Record<string, string> = {};
+      await Promise.all(receipt.items.map(async (item) => {
+        try {
+          const images = await productApi.getImages(item.product_id);
+          if (images.length > 0 && images[0].url) {
+            imageMap[item.product_id] = images[0].url;
+          }
+        } catch { /* ignore */ }
+      }));
+      setProductImages(imageMap);
     } catch (err: any) {
       setError(err.detail || 'Ошибка');
     } finally {
@@ -74,7 +87,21 @@ export function ReceiptsPage() {
     setLoading(true);
     try {
       await receiptApi.addItem(currentReceipt.id, code, 1);
-      setCurrentReceipt(await receiptApi.get(currentReceipt.id));
+      const updatedReceipt = await receiptApi.get(currentReceipt.id);
+      setCurrentReceipt(updatedReceipt);
+
+      const newImageMap = { ...productImages };
+      await Promise.all(updatedReceipt.items.map(async (item) => {
+        if (!newImageMap[item.product_id]) {
+          try {
+            const images = await productApi.getImages(item.product_id);
+            if (images.length > 0 && images[0].url) {
+              newImageMap[item.product_id] = images[0].url;
+            }
+          } catch { /* ignore */ }
+        }
+      }));
+      setProductImages(newImageMap);
       setCode('');
     } catch (err: any) {
       setError(err.detail || 'Ошибка');
@@ -194,18 +221,26 @@ export function ReceiptsPage() {
             ) : (
               <div className="space-y-2">
                 {currentReceipt.items.map((item, i) => (
-                  <div key={i} className="flex justify-between items-center p-2 bg-bg rounded">
-                    <div>
-                      <div>{item.product_name}</div>
+                  <div key={i} className="flex items-center gap-3 p-2 bg-bg rounded">
+                    {productImages[item.product_id] && (
+                      <img
+                        src={productImages[item.product_id]}
+                        alt={item.product_name}
+                        className="w-14 h-14 object-cover rounded border border-border shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setLightboxImage(productImages[item.product_id])}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate">{item.product_name}</div>
                       <div className="text-sm text-gray-400">{item.barcode} · {item.quantity} шт.</div>
                     </div>
                     {item.cell_code ? (
-                      <div className="text-right leading-tight">
+                      <div className="text-right leading-tight shrink-0">
                         <div className="font-mono text-primary font-bold">Ячейка №{item.cell_code}</div>
                         <div className="text-xs text-gray-400">{item.cell_quantity}/{item.cell_capacity}</div>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-400">{item.price} ₽</div>
+                      <div className="text-sm text-gray-400 shrink-0">{item.price} ₽</div>
                     )}
                   </div>
                 ))}
@@ -250,6 +285,19 @@ export function ReceiptsPage() {
         }}
         onCancel={() => setConfirmModal(null)}
       />
+
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
+          onClick={() => setLightboxImage(null)}
+        >
+          <img
+            src={lightboxImage}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded"
+          />
+        </div>
+      )}
     </AppLayout>
   );
 }

@@ -1,8 +1,18 @@
 """Модель товара для склада."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from bson import ObjectId
+
+
+@dataclass
+class ProductImage:
+    """Изображение товара."""
+
+    id: str
+    filename: str
+    object_key: str
+    uploaded_at: datetime
 
 
 @dataclass
@@ -22,6 +32,7 @@ class Product:
         price: Цена
         created_at: Дата создания
         updated_at: Дата обновления
+        images: Изображения
     """
 
     _id: ObjectId | None = None
@@ -40,6 +51,7 @@ class Product:
     length: float = 0.0
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    images: list[dict] = field(default_factory=list)
 
     @property
     def id(self) -> str:
@@ -62,6 +74,7 @@ class Product:
             "height": self.height,
             "width": self.width,
             "length": self.length,
+            "images": self.images,
             "created_at": self.created_at or datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -84,6 +97,7 @@ class Product:
             height=data.get("height", 0),
             width=data.get("width", 0),
             length=data.get("length", 0),
+            images=data.get("images", []),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )

@@ -75,7 +75,12 @@ def redis_rate_limit():
 
 @pytest.fixture
 def service(repo, security, validation, redis_blacklist, redis_rate_limit):
+    fake_container = Mock(spec=Container)
+    fake_user_service = AsyncMock()
+    fake_user_service.get_user_by_id = AsyncMock(return_value={"_id": "u1", "username": "test"})
+    fake_container.resolve = Mock(return_value=fake_user_service)
     return AuthService(
+        container=fake_container,
         repository=repo,
         security=security,
         validation=validation,

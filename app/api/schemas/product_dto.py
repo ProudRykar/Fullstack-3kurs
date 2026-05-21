@@ -1,7 +1,7 @@
 """DTO для товаров."""
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from datetime import datetime
 
 from app.core.domain.models.product import Product
 
@@ -11,6 +11,16 @@ class ProductSearchDTO:
     """Поиск товара."""
 
     code: str
+
+
+@dataclass
+class ProductImageDTO:
+    """Изображение товара."""
+
+    id: str
+    filename: str
+    url: str
+    uploaded_at: str
 
 
 @dataclass
@@ -27,12 +37,27 @@ class ProductDTO:
     location: str
     quantity: int
     price: float
-    created_at: str | None
-    updated_at: str | None
+    created_at: str | None = None
+    updated_at: str | None = None
+    weight: float = 0.0
+    height: float = 0.0
+    width: float = 0.0
+    length: float = 0.0
+    images: list[ProductImageDTO] = field(default_factory=list)
 
     @classmethod
-    def from_product(cls, product: Product) -> "ProductDTO":
+    def from_product(cls, product: Product, presigned_urls: dict[str, str] | None = None) -> "ProductDTO":
         """Из модели Product."""
+        urls = presigned_urls or {}
+        images = [
+            ProductImageDTO(
+                id=img["id"],
+                filename=img["filename"],
+                url=urls.get(img["id"], ""),
+                uploaded_at=img.get("uploaded_at", ""),
+            )
+            for img in product.images
+        ]
         return cls(
             id=str(product._id) if product._id else "",
             barcode=product.barcode,
@@ -44,6 +69,11 @@ class ProductDTO:
             location=product.location,
             quantity=product.quantity,
             price=product.price,
+            weight=product.weight,
+            height=product.height,
+            width=product.width,
+            length=product.length,
+            images=images,
             created_at=product.created_at.isoformat() if product.created_at else None,
             updated_at=product.updated_at.isoformat() if product.updated_at else None,
         )
@@ -60,6 +90,10 @@ class ProductCreateDTO:
     location: str = ""
     quantity: int = 0
     price: float = 0.0
+    weight: float = 0.0
+    height: float = 0.0
+    width: float = 0.0
+    length: float = 0.0
     qrcode: str | None = None
     rfid: str | None = None
 

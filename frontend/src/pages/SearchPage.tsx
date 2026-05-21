@@ -18,6 +18,7 @@ export function SearchPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -139,7 +140,32 @@ export function SearchPage() {
 
       {mode === 'code' && product && (
         <div className="card">
-          <h2 className="text-2xl font-bold mb-4">{product.name}</h2>
+          <div className="flex gap-4 mb-4">
+            {product.images?.[0] && (
+              <img
+                src={product.images[0].url}
+                alt={product.name}
+                className="w-24 h-24 object-cover rounded border border-border shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setLightboxImage(product.images[0].url)}
+              />
+            )}
+            <div>
+              <h2 className="text-2xl font-bold">{product.name}</h2>
+              {product.images && product.images.length > 1 && (
+                <div className="flex gap-1 mt-2">
+                  {product.images.slice(1).map((img) => (
+                    <img
+                      key={img.id}
+                      src={img.url}
+                      alt=""
+                      className="w-8 h-8 object-cover rounded border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setLightboxImage(img.url)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-400">Артикул:</span>
@@ -184,10 +210,22 @@ export function SearchPage() {
         <div className="space-y-4">
           {results.map((r) => (
             <div key={r.product.id} className="card">
-              <h2 className="text-xl font-bold mb-1">{r.product.name}</h2>
-              <div className="text-sm text-gray-400 mb-3">
-                Штрихкод: {r.product.barcode}
-                {r.product.sku ? ` | Артикул: ${r.product.sku}` : ''}
+              <div className="flex gap-3 mb-3">
+                {r.product.images?.[0] && (
+                  <img
+                    src={r.product.images[0].url}
+                    alt={r.product.name}
+                    className="w-16 h-16 object-cover rounded border border-border shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setLightboxImage(r.product.images[0].url)}
+                  />
+                )}
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold mb-1">{r.product.name}</h2>
+                  <div className="text-sm text-gray-400">
+                    Штрихкод: {r.product.barcode}
+                    {r.product.sku ? ` | Артикул: ${r.product.sku}` : ''}
+                  </div>
+                </div>
               </div>
 
               {r.cells.length > 0 ? (
@@ -232,6 +270,19 @@ export function SearchPage() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
+          onClick={() => setLightboxImage(null)}
+        >
+          <img
+            src={lightboxImage}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded"
+          />
         </div>
       )}
     </AppLayout>

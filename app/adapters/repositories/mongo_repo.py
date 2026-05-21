@@ -84,7 +84,8 @@ class MongoRepo(RepositoryInterface):
         return result
 
     async def get_many(
-        self, query: dict[str, Any], limit: int = 1000, skip: int = 0
+        self, query: dict[str, Any], limit: int = 1000, skip: int = 0,
+        sort: list[tuple[str, int]] | None = None,
     ) -> list[dict[str, Any]]:
         """Получает несколько документов из коллекции.
 
@@ -92,12 +93,16 @@ class MongoRepo(RepositoryInterface):
             query (dict[str, Any]): Словарь с фильтром поиска.
             limit (int, optional): Максимальное количество документов. По умолчанию 1000.
             skip (int, optional): Количество документов для пропуска. По умолчанию 0.
+            sort (list[tuple[str, int]] | None): Сортировка [(field, direction), ...].
 
         Returns:
             list[dict[str, Any]]: Список найденных документов.
         """
         collection = await self._init_collection()
-        result = collection.find(query).skip(skip).limit(limit)
+        cursor = collection.find(query)
+        if sort:
+            cursor = cursor.sort(sort)
+        result = cursor.skip(skip).limit(limit)
         return await monitored_mongo_call("find_many", result.to_list())
     
     async def count(self, query: dict[str, Any] = None) -> int:

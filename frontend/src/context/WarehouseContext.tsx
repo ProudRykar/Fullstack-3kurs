@@ -14,7 +14,10 @@ const WarehouseContext = createContext<WarehouseContextType | null>(null);
 
 export function WarehouseProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(() => {
+    const stored = localStorage.getItem('selectedWarehouseId');
+    return stored ? { id: stored, name: '', address: '' } : null;
+  });
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
   const loadWarehouses = async () => {
@@ -32,9 +35,34 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (warehouses.length > 0) {
+      const stored = localStorage.getItem('selectedWarehouseId');
+      if (stored) {
+        const match = warehouses.find((w) => w.id === stored);
+        if (match) {
+          setSelectedWarehouse(match);
+        } else {
+          setSelectedWarehouse(warehouses[0]);
+        }
+      } else if (!selectedWarehouse) {
+        setSelectedWarehouse(warehouses[0]);
+      }
+    }
+  }, [warehouses]);
+
+  const handleSetWarehouse = (w: Warehouse | null) => {
+    setSelectedWarehouse(w);
+    if (w) {
+      localStorage.setItem('selectedWarehouseId', w.id);
+    } else {
+      localStorage.removeItem('selectedWarehouseId');
+    }
+  };
+
   return (
     <WarehouseContext.Provider
-      value={{ selectedWarehouse, setSelectedWarehouse, warehouses, loadWarehouses }}
+      value={{ selectedWarehouse, setSelectedWarehouse: handleSetWarehouse, warehouses, loadWarehouses }}
     >
       {children}
     </WarehouseContext.Provider>

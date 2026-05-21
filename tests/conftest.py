@@ -35,6 +35,14 @@ def _install_fake_config():
         REDIS_PASSWORD = ""
         REDIS_URL = "redis://localhost:6379"
 
+        # --- Validation ---
+        USERNAME_MIN_LENGTH = 3
+        USERNAME_MAX_LENGTH = 255
+        EMAIL_MAX_LENGTH = 255
+        PASSWORD_MIN_LENGTH = 8
+        PASSWORD_SPEC_SYMBOLS = frozenset({"!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "?", "|", "/", "<", ">", "_", "-"})
+        ALLOWED_IMAGE_EXTENSIONS = ("jpg", "jpeg", "png")
+
         DEBUG = True
 
         BASE_PROBLEM_URI = "https://example.com/probs"

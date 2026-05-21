@@ -156,6 +156,8 @@ def build_container() -> Container:
         ProductService,
         factory=lambda: ProductService(
             product_repo=container.resolve(ProductRepo),
+            storage=container.resolve(MinioGateway),
+            image_validator=container.resolve(ImageValidator),
         ),
     )
 

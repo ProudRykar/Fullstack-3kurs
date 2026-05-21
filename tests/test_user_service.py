@@ -76,6 +76,7 @@ def make_service(
         get_one=AsyncMock(),
         get_many=AsyncMock(),
         delete=AsyncMock(),
+        count=AsyncMock(return_value=0),
     )
     image_repo = image_repo or types.SimpleNamespace(
         add=AsyncMock(),
@@ -132,7 +133,7 @@ async def test_create_user_username_taken_raises():
 
 
 async def test_create_user_email_taken_raises():
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(side_effect=[None, {"username": "other", "email": "a@b.com"}])
@@ -144,7 +145,7 @@ async def test_create_user_email_taken_raises():
 
 
 async def test_create_user_success_creates_lower_email_and_returns_user(monkeypatch):
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     new_id = ObjectId()
@@ -194,7 +195,7 @@ async def test_create_user_success_creates_lower_email_and_returns_user(monkeypa
 
 
 async def test_create_user_repo_add_failure_raises_usercreationerror():
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(side_effect=[None, None])  # does_user_exists -> None/None
@@ -209,7 +210,7 @@ async def test_create_user_repo_add_failure_raises_usercreationerror():
 # does_user_exists
 
 async def test_does_user_exists_checks_username_then_email_lower():
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     # username miss, email hit
@@ -352,7 +353,7 @@ async def test_get_all_user_images_repo_raises_getimageserror_bubbles_as_getimag
 # delete_image
 
 async def test_delete_image_absent_user_raises():
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(return_value=None)
@@ -365,7 +366,7 @@ async def test_delete_image_absent_user_raises():
 
 async def test_delete_image_image_not_found_raises():
     user_id = ObjectId()
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(return_value={"_id": user_id})
@@ -381,7 +382,7 @@ async def test_delete_image_other_users_image_raises():
     user_id = ObjectId()
     other_id = ObjectId()
 
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(return_value={"_id": user_id})
@@ -395,7 +396,7 @@ async def test_delete_image_other_users_image_raises():
 
 async def test_delete_image_repo_delete_failure_raises():
     user_id = ObjectId()
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(return_value={"_id": user_id})
@@ -410,7 +411,7 @@ async def test_delete_image_repo_delete_failure_raises():
 
 async def test_delete_image_storage_delete_failure_raises():
     user_id = ObjectId()
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(return_value={"_id": user_id})
@@ -428,7 +429,7 @@ async def test_delete_image_storage_delete_failure_raises():
 
 async def test_delete_image_success_deletes_repo_and_storage():
     user_id = ObjectId()
-    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
+    user_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock(), count=AsyncMock(return_value=0))
     image_repo = types.SimpleNamespace(add=AsyncMock(), get_one=AsyncMock(), get_many=AsyncMock(), delete=AsyncMock())
 
     user_repo.get_one = AsyncMock(return_value={"_id": user_id})

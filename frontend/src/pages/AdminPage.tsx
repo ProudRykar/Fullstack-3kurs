@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { adminApi, productApi } from '../services/api';
 import { AppLayout } from '../components/AppLayout';
 import type { Role, ProblemDetail, ProductCreate } from '../types';
 
-function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onError: (msg: string) => void }) {
+function ProductCreateForm({ onSuccess, onError }: { onSuccess: (productId?: string) => void; onError: (msg: string) => void }) {
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -18,7 +18,22 @@ function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onEr
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
   const [width, setWidth] = useState('');
-  const [length, setLength] = useState('')
+  const [length, setLength] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,12 +53,20 @@ function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onEr
         width: parseFloat(width) || 0,
         length: parseFloat(length) || 0,
       };
-      await productApi.create(data);
+      const created = await productApi.create(data);
+
+      if (imageFile) {
+        await productApi.uploadImage(created.id, imageFile);
+      }
+
       setName(''); setSku(''); setBarcode(''); setQrcode('');
       setRfid(''); setCategory(''); setLocation('');
       setWeight(''); setHeight(''); setWidth(''); setLength('');
       setPrice('');
-      onSuccess();
+      setImageFile(null);
+      setImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      onSuccess(created.id);
     } catch (err) {
       const problem = err as ProblemDetail;
       onError(problem.detail || 'Ошибка при создании товара');
@@ -104,6 +127,23 @@ function ProductCreateForm({ onSuccess, onError }: { onSuccess: () => void; onEr
           <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="input-field" required />
         </div>
       </div>
+
+      <div>
+        <label className="block mb-1 text-sm text-gray-400">Изображение</label>
+        <div className="flex items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            onChange={handleFileChange}
+            className="text-sm"
+          />
+          {imagePreview && (
+            <img src={imagePreview} alt="" className="w-16 h-16 object-cover rounded border border-border" />
+          )}
+        </div>
+      </div>
+
       <button type="submit" disabled={submitting} className="btn-primary">
         {submitting ? 'Создание...' : 'Создать товар'}
       </button>

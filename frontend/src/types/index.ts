@@ -26,6 +26,18 @@ export interface AuthResponse {
   role: Role;
 }
 
+export interface ProductImage {
+  id: string;
+  filename: string;
+  url: string;
+  uploaded_at: string;
+}
+
+export interface ProductListResponse {
+  items: Product[];
+  total: number;
+}
+
 export interface Product {
   id: string;
   barcode: string;
@@ -37,6 +49,11 @@ export interface Product {
   location: string;
   quantity: number;
   price: number;
+  weight: number;
+  height: number;
+  width: number;
+  length: number;
+  images: ProductImage[];
   created_at: string | null;
   updated_at: string | null;
   cell_code?: string;

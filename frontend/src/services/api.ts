@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, LoginCredentials, Product, ProductCreate, ProductSearchResult, RegisterData, Role, User, ProblemDetail, Warehouse, WarehouseCell } from '../types';
+import type { AuthResponse, LoginCredentials, Product, ProductCreate, ProductListResponse, ProductSearchResult, ProductImage, RegisterData, Role, User, ProblemDetail, Warehouse, WarehouseCell } from '../types';
 
 const api = axios.create({
   baseURL: '',
@@ -120,6 +120,17 @@ export const adminApi = {
   },
 };
 
+export interface ProductFilterParams {
+  limit?: number;
+  skip?: number;
+  search?: string;
+  category?: string;
+  min_price?: number;
+  max_price?: number;
+  sort_by?: string;
+  sort_order?: string;
+}
+
 export const productApi = {
   search: async (code: string, warehouseId?: string): Promise<Product> => {
     const params: Record<string, string> = { code };
@@ -138,7 +149,7 @@ export const productApi = {
     return response.data;
   },
 
-  update: async (productId: string, data: ProductCreate): Promise<Product> => {
+  update: async (productId: string, data: Partial<ProductCreate>): Promise<Product> => {
     const response = await api.patch(`/products/${productId}`, data);
     return response.data;
   },
@@ -147,14 +158,37 @@ export const productApi = {
     await api.delete(`/products/${productId}`);
   },
 
-  getAll: async (limit: number = 100): Promise<Product[]> => {
-    const response = await api.get('/products', { params: { limit } });
+  getAll: async (params: ProductFilterParams = {}): Promise<ProductListResponse> => {
+    const response = await api.get('/products', { params });
     return response.data;
   },
 
   searchByName: async (q: string): Promise<ProductSearchResult[]> => {
     const response = await api.get('/products/search-by-name', { params: { q } });
     return response.data;
+  },
+
+  getCategories: async (): Promise<string[]> => {
+    const response = await api.get('/products/categories');
+    return response.data;
+  },
+
+  getImages: async (productId: string): Promise<ProductImage[]> => {
+    const response = await api.get(`/products/${productId}/images`);
+    return response.data;
+  },
+
+  uploadImage: async (productId: string, file: File): Promise<ProductImage> => {
+    const formData = new FormData();
+    formData.append('data', file);
+    const response = await api.post(`/products/${productId}/images`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteImage: async (productId: string, imageId: string): Promise<void> => {
+    await api.delete(`/products/${productId}/images/${imageId}`);
   },
 };
 
